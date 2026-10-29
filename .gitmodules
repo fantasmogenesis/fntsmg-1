@@ -1,0 +1,4 @@
+[submodule "vendor/Felucca"]
+	path = vendor/Felucca
+	url = https://github.com/fantasmogenesis/Felucca.git
+	branch = groovebox

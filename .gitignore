@@ -1,0 +1,16 @@
+# compilados y respaldos (los respaldos traen proyectos personales)
+firmware/out/
+firmware/host/out/
+bench/out/
+# WAV de origen de los samples: el banco ya va compilado en motores/src/fg_samples.c
+firmware/samples/candidatos/
+# material de otros (se baja aparte) y pruebas internas
+oficial/
+vendor/fm1_open/
+vendor/sloop-fm1/
+bench/
+diseno/
+maqueta/
+.DS_Store
+__pycache__/
+*.dSYM/

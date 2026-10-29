@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FNTSMG-1 Espejo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #0b0b0a; --fg: #f2eee4; --dim: #96928a; --line: #2a2926; }
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; background: #000; color: var(--fg); font-family: Manrope, system-ui, sans-serif; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+body { display: flex; flex-direction: column; overflow: hidden; }
+header { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--bg); transition: opacity .4s; z-index: 2; }
+header h1 { font-size: 15px; font-weight: 800; letter-spacing: .08em; }
+#estado { font-size: 12px; color: var(--dim); flex: 1; min-width: 160px; }
+#estado.on { color: var(--fg); }
+#estado.on::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #d6402e; margin-right: 8px; vertical-align: 1px; }
+button { font: inherit; font-size: 12px; color: var(--fg); background: transparent; border: 1px solid var(--line); padding: 8px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; text-transform: uppercase; letter-spacing: .06em; }
+button:hover { border-color: var(--dim); }
+button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+.paletas { display: flex; gap: 6px; }
+.paletas button { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid var(--line); }
+.paletas button[aria-pressed="true"] { border-color: var(--fg); }
+main { flex: 1; display: grid; place-items: center; position: relative; min-height: 0; }
+canvas { width: min(100vw, calc(100vh - 60px)); height: min(100vw, calc(100vh - 60px)); image-rendering: pixelated; background: var(--bg); }
+body.lleno canvas { width: min(100vw, 100vh); height: min(100vw, 100vh); }
+body.lleno header { position: fixed; top: 0; left: 0; right: 0; opacity: 0; }
+body.lleno header:hover, body.lleno.mueve header { opacity: 1; }
+#aviso { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 16px; font-size: 13px; color: var(--dim); line-height: 1.8; pointer-events: none; }
+#aviso b { color: var(--fg); font-weight: 800; }
+@media (max-width: 560px) { header { gap: 8px 10px; } button { padding: 7px 9px; font-size: 11px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>FNTSMG-1 · Espejo</h1>
+  <span id="estado">Sin conectar</span>
+  <button id="conectar" type="button"><svg viewBox="0 0 24 24"><path d="M9 7V3M15 7V3M7 7h10v5a5 5 0 0 1-10 0zM12 17v4"/></svg>Conectar</button>
+  <button id="demo" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Probar sin aparato</button>
+  <button id="solo" type="button" aria-pressed="true">Solo visual</button>
+  <div class="paletas" role="group" aria-label="Colores">
+    <button type="button" data-p="hueso" aria-pressed="true" title="Hueso" style="background:#f2eee4"></button>
+    <button type="button" data-p="rojo" aria-pressed="false" title="Rojo" style="background:#d6402e"></button>
+    <button type="button" data-p="fosforo" aria-pressed="false" title="Fósforo" style="background:#7cff8a"></button>
+    <button type="button" data-p="negativo" aria-pressed="false" title="Negativo" style="background:#0b0b0a"></button>
+  </div>
+  <button id="lleno" type="button"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>Pantalla completa</button>
+</header>
+<main>
+  <canvas id="c" width="720" height="720"></canvas>
+  <div id="aviso">Conecta el FM-1 con FNTSMG-1 por USB y presiona <b>Conectar</b>.<br>Funciona en Chrome o Edge (computadora o Android).</div>
+</main>
+<script>
+const PAL = { hueso: [[11, 11, 10], [242, 238, 228]], rojo: [[8, 4, 3], [214, 64, 46]], fosforo: [[3, 16, 9], [124, 255, 138]], negativo: [[242, 238, 228], [11, 11, 10]] };
+let pal = PAL.hueso, ex = null, mem = null, midi = null, out = null, soloVis = true, demo = null, last = 0;
+const $ = id => document.getElementById(id), cv = $('c'), ctx = cv.getContext('2d'), img = ctx.createImageData(720, 720);
+const ui = { view: 0, bpm: 124, sel: 0, cur: 0, queued: 255, used: 1, mute: 0, solo: 0, pend: 0, has_pend: 0, perf: 0 };
+const estado = (t, on) => { const e = $('estado'); e.textContent = t; e.classList.toggle('on', !!on); };
+
+async function cargar() {
+  const NOOP = new Proxy({}, { get: () => () => 0 });
+  const { instance } = await WebAssembly.instantiate(await (await fetch('espejo.wasm')).arrayBuffer(), new Proxy({}, { get: () => NOOP }));
+  ex = instance.exports; mem = ex.memory;
+  if (ex._initialize) ex._initialize();
+  ex.e_init(12345);
+  requestAnimationFrame(cuadro);
+}
+function enviarEstado() {
+  ex.e_state(soloVis ? 0 : ui.view, ui.bpm, ui.sel, ui.cur, ui.queued, ui.used, ui.mute, ui.solo, ui.pend, ui.has_pend, ui.perf);
+}
+function golpe(t, m, vel, p) {
+  new Uint8Array(mem.buffer, ex.e_params(), 8).set(p);
+  ex.e_hit(t, m, vel);
+}
+/* F0 7D 46 47 tipo …: 1 golpe (pista, modelo, fuerza, 8 perillas), 2 estado (ver fg_box_mirror en el firmware) */
+function sysex(d) {
+  if (d.length < 6 || d[0] !== 0xF0 || d[1] !== 0x7D || d[2] !== 0x46 || d[3] !== 0x47) return;
+  const ty = d[4], a = d.subarray(5);
+  if (ty === 1 && a.length >= 11) { golpe(a[0], a[1], a[2], a.subarray(3, 11)); if (!out) return; }
+  if (ty === 2 && a.length >= 59) {
+    Object.assign(ui, { view: a[0], bpm: a[1] << 7 | a[2], sel: a[3], cur: a[4], queued: a[5] === 127 ? 255 : a[5], used: a[6] << 14 | a[7] << 7 | a[8],
+      mute: a[9] << 7 | a[10], solo: a[11] << 7 | a[12], pend: a[13] << 7 | a[14], has_pend: a[15], perf: a[16] << 14 | a[17] << 7 | a[18] });
+    for (let t = 0; t < 8; t++) ex.e_level(t, a[19 + t] << 8);
+    for (let t = 0; t < 8; t++) for (let i = 0; i < 4; i++) ex.e_mix(t, i, a[27 + t * 4 + i]);
+  }
+  last = performance.now();
+}
+async function conectar() {
+  if (!navigator.requestMIDIAccess) { estado('Este navegador no tiene MIDI: usa Chrome o Edge'); return; }
+  try { midi = await navigator.requestMIDIAccess({ sysex: true }); } catch (e) { estado('Sin permiso para MIDI'); return; }
+  const buscar = () => {
+    let inp = null; out = null;
+    midi.inputs.forEach(p => { if (/felucca|fntsmg/i.test(p.name)) inp = p; });
+    midi.outputs.forEach(p => { if (/felucca|fntsmg/i.test(p.name)) out = p; });
+    midi.inputs.forEach(p => { p.onmidimessage = p === inp ? e => sysex(e.data) : null; });
+    if (inp && out) { estado('Conectado', true); $('aviso').style.display = 'none'; pedir(); } else estado('Buscando el FM-1…');
+  };
+  midi.onstatechange = buscar;
+  buscar();
+}
+function pedir() { if (out) try { out.send([0xBF, 119, 127]); } catch (e) {} }
+setInterval(() => { pedir(); if (out && performance.now() - last > 3000) estado('Conectado, sin señal', false); else if (out) estado('Conectado', true); }, 1000);
+addEventListener('pagehide', () => { if (out) try { out.send([0xBF, 119, 0]); } catch (e) {} });
+
+/* sin aparato: un ritmo que se inventa la página, para probar colores y pantalla */
+function demoTick() {
+  const s = demo.step++, r = Math.random, P = () => Array.from({ length: 8 }, () => (r() * 128) | 0);
+  if (s % 4 === 0) golpe(0, 0, 110, [40, 60, 70, 20, 10, 50, 60, 110]);
+  if (s % 8 === 4) golpe(1, s % 16 === 12 ? 1 : 0, 100, P());
+  if (s % 2 === 1) golpe(2, 0, 80, P());
+  if (r() < .25) golpe(3, (r() * 2) | 0, 90, P());
+  if (s % 16 === 0) golpe(4 + ((s / 16) % 4 | 0), (r() * 10) | 0, 100, P());
+  if (r() < .15) golpe(4 + ((r() * 4) | 0), (r() * 10) | 0, 100, P());
+  for (let t = 0; t < 8; t++) ex.e_level(t, 9000 + (r() * 9000 | 0));
+}
+function cuadro(t) {
+  enviarEstado();
+  ex.e_frame(t | 0);
+  const o = new Uint8Array(mem.buffer, ex.e_out(), 90 * 720), d = img.data, [b, f] = pal;
+  for (let i = 0, p = 0; i < o.length; i++) {
+    const v = o[i];
+    for (let k = 7; k >= 0; k--, p += 4) { const c = (v >> k) & 1 ? f : b; d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2]; d[p + 3] = 255; }
+  }
+  ctx.putImageData(img, 0, 0);
+  requestAnimationFrame(cuadro);
+}
+
+$('conectar').onclick = conectar;
+$('demo').onclick = e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', on);
+  if (demo) { clearInterval(demo.id); demo = null; }
+  if (on) { demo = { step: 0 }; demo.id = setInterval(demoTick, 60000 / 124 / 4); $('aviso').style.display = 'none'; }
+};
+$('solo').onclick = e => { soloVis = !soloVis; e.currentTarget.setAttribute('aria-pressed', soloVis); };
+document.querySelectorAll('.paletas button').forEach(b => b.onclick = () => {
+  pal = PAL[b.dataset.p];
+  document.querySelectorAll('.paletas button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  try { localStorage.setItem('espejo.pal', b.dataset.p); } catch (e) {}
+});
+try { const p = localStorage.getItem('espejo.pal'); if (p && PAL[p]) document.querySelector(`[data-p="${p}"]`).click(); } catch (e) {}
+$('lleno').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+document.addEventListener('fullscreenchange', () => document.body.classList.toggle('lleno', !!document.fullscreenElement));
+addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F') $('lleno').click(); });
+let mt; addEventListener('mousemove', () => { document.body.classList.add('mueve'); clearTimeout(mt); mt = setTimeout(() => document.body.classList.remove('mueve'), 1500); });
+cargar();
+</script>
+</body>
+</html>

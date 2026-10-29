@@ -1,0 +1,237 @@
+{
+ "bombos": [
+  {
+   "nombre": "TECHNO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/TECHNO.wav",
+   "tasa": 32000,
+   "origen": "generado"
+  },
+  {
+   "nombre": "808 LARGO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/808 LARGO.wav",
+   "tasa": 11025,
+   "origen": "generado"
+  },
+  {
+   "nombre": "ROTO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/ROTO.wav",
+   "tasa": 11025,
+   "origen": "generado"
+  },
+  {
+   "nombre": "SUB DUB",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/SUB DUB.wav",
+   "tasa": 11025,
+   "origen": "generado"
+  },
+  {
+   "nombre": "CINTA",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/CINTA.wav",
+   "tasa": 11025,
+   "origen": "generado"
+  },
+  {
+   "nombre": "SECO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/SECO.wav",
+   "tasa": 44100,
+   "origen": "generado"
+  },
+  {
+   "nombre": "808 PACK 13",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/808 PACK 13.wav",
+   "tasa": 11025,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 13/KICK 808.wav"
+  },
+  {
+   "nombre": "PACK 13",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/PACK 13.wav",
+   "tasa": 16000,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 13/KICK.WAV"
+  },
+  {
+   "nombre": "PACK 14",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/PACK 14.wav",
+   "tasa": 16000,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 14/KICK 1.wav"
+  },
+  {
+   "nombre": "PACK 22",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/bombos/PACK 22.wav",
+   "tasa": 16000,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 22/KICK.wav"
+  }
+ ],
+ "texturas": [
+  {
+   "nombre": "CORO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/CORO.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 16000,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "CAMPANAS LEJANAS",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/CAMPANAS LEJANAS.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "CINTA",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/CINTA.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 11025,
+   "nota": 55,
+   "origen": "generado"
+  },
+  {
+   "nombre": "VIDRIO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/VIDRIO.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 16000,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "MAR GRAVE",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/MAR GRAVE.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 11025,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "METAL ARCO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/METAL ARCO.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 64,
+   "origen": "generado"
+  },
+  {
+   "nombre": "HIELO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/HIELO.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 16000,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "TEXTURE PAD",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/TEXTURE PAD.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 11025,
+   "nota": 59,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 24/TEXTURE PAD.wav"
+  },
+  {
+   "nombre": "PAD 23",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/PAD 23.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 57,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 23/PAD.wav"
+  },
+  {
+   "nombre": "PAD 25",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/PAD 25.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 65,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 25/PAD.wav"
+  },
+  {
+   "nombre": "PAD 4",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/PAD 4.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 62,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 4/PAD.wav"
+  }
+ ],
+ "cajas": [
+  {
+   "nombre": "CAJA P12",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P12.wav",
+   "largo": 0.15,
+   "tasa": 32000,
+   "origen": "librería: Librería 1/PACKS/PACK 12/SNARE.wav"
+  },
+  {
+   "nombre": "CAJA P13",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P13.wav",
+   "largo": 0.19,
+   "tasa": 44100,
+   "origen": "librería: Librería 1/PACKS/PACK 13/SNARE.WAV"
+  },
+  {
+   "nombre": "CAJA P22 GRAVE",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P22 GRAVE.wav",
+   "largo": 0.2,
+   "tasa": 44100,
+   "origen": "librería: Librería 1/PACKS/PACK 22/SNARE 3.wav"
+  },
+  {
+   "nombre": "CAJA P23",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P23.wav",
+   "largo": 0.27,
+   "tasa": 22050,
+   "origen": "librería: Librería 1/PACKS/PACK 23/SNARE.wav"
+  },
+  {
+   "nombre": "CAJA P17",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P17.wav",
+   "largo": 0.16,
+   "tasa": 44100,
+   "origen": "librería: Librería 1/PACKS/PACK 17/SNARE.wav"
+  },
+  {
+   "nombre": "CAJA P12 B",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P12 B.wav",
+   "largo": 0.13,
+   "tasa": 32000,
+   "origen": "librería: Librería 1/PACKS/PACK 12/SNARE 2.wav"
+  },
+  {
+   "nombre": "CAJA P10 B",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P10 B.wav",
+   "largo": 0.22,
+   "tasa": 44100,
+   "origen": "librería: Librería 1/PACKS/PACK 10/SNARE 2.WAV"
+  },
+  {
+   "nombre": "CAJA P10",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P10.wav",
+   "largo": 0.22,
+   "tasa": 44100,
+   "origen": "librería: Librería 1/PACKS/PACK 10/SNARE.wav"
+  },
+  {
+   "nombre": "CAJA P25",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/CAJA P25.wav",
+   "largo": 0.23,
+   "tasa": 44100,
+   "origen": "librería: Librería 1/PACKS/PACK 25/SNARE .wav"
+  },
+  {
+   "nombre": "RIM P17",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/cajas/RIM P17.wav",
+   "largo": 0.41,
+   "tasa": 32000,
+   "origen": "librería: Librería 1/PACKS/PACK 17/RIM.wav"
+  }
+ ]
+}

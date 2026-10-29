@@ -1,0 +1,3 @@
+#!/bin/sh
+# atajo: firmware/fm1 shot x.png | tap PLAY | enc K1 3 | cmd fg ...
+DYLD_LIBRARY_PATH=/opt/homebrew/lib exec /Volumes/SSD-HUB/tools/_sdk/fm1-venv/bin/python "$(dirname "$0")/tools/fm1.py" "$@"

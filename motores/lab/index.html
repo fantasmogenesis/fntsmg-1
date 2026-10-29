@@ -1,0 +1,642 @@
+<title>Laboratorio de motores FM-1</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;800&display=swap" rel="stylesheet">
+<style>
+/* Mesa de trabajo: pantalla y transporte arriba a la izquierda, la pista elegida a la derecha, el patrón de las
+   8 pistas en el centro, abajo la mezcladora, los efectos y el pad de performance. */
+:root{
+  --paper:#F8F6F2; --paper-2:#EFEDE8; --ink:#0A0A0A; --ink-2:#666660; --rule:#dcd8cf; --cobalt:#2747d6; --rec:#d6402e;
+  --knob:#151514; --knob-ind:#F2EEE4;
+  --f:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#111110; --paper-2:#1b1b19; --ink:#EDEAE3; --ink-2:#9a978f; --rule:#2d2c29; --cobalt:#7d93ff; --knob:#2a2a27; color-scheme:dark; } }
+:root[data-theme="dark"]{ --paper:#111110; --paper-2:#1b1b19; --ink:#EDEAE3; --ink-2:#9a978f; --rule:#2d2c29; --cobalt:#7d93ff; --knob:#2a2a27; color-scheme:dark; }
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.page{max-width:1200px;margin:0 auto;padding-block:28px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.eyebrow,.lbl{font-weight:800;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+h1{font-weight:200;font-size:clamp(36px,6vw,68px);letter-spacing:-.035em;line-height:.95;margin:8px 0 12px}
+h2{font-weight:200;font-size:30px;letter-spacing:-.02em;margin:0}
+p{margin:0}
+.lead{max-width:66ch;font-size:15px;color:var(--ink-2)}
+.chip{font:800 10px var(--f);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--rule);border-radius:999px;padding:7px 11px;background:transparent;color:var(--ink-2);cursor:pointer}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.mut{text-decoration:line-through;opacity:.55}
+.chip:focus-visible,.btn:focus-visible,.step:focus-visible,.knob:focus-visible,.lname:focus-visible,.pad button:focus-visible,.ms:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
+.btn{font:800 11px var(--f);letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:999px;padding:10px 15px;cursor:pointer;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+.btn.rec{background:transparent;color:var(--rec);border-color:var(--rec)}
+.btn.rec.on{background:var(--rec);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);display:flex;gap:8px 14px;flex-wrap:wrap;align-items:center;padding-block:10px;border-bottom:1px solid var(--rule);margin:18px 0 22px}
+.ctl{display:grid;grid-template-columns:auto 110px 44px;gap:8px;align-items:center;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.ctl output{font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:0}
+.ctl input{width:100%;accent-color:var(--ink)}
+.work{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.left{flex:1 1 300px;min-width:0;max-width:400px;display:grid;gap:12px}
+.right{flex:1 1 540px;min-width:0;display:grid;gap:16px}
+.screen{width:100%;aspect-ratio:1;max-width:100%;background:#0b0b0a;border-radius:12px;display:block;image-rendering:pixelated}
+.tracksel{display:flex;gap:6px;flex-wrap:wrap}
+.thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.thead h2 b{font-weight:800;font-size:12px;letter-spacing:.14em;color:var(--ink-2);margin-left:8px}
+.pages{display:grid;gap:14px}
+.ptitle{display:flex;justify-content:space-between;align-items:baseline}
+.knobs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 8px;margin-top:10px}
+.kn{display:grid;justify-items:center;gap:5px;text-align:center}
+.knob{width:min(66px,100%);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 40% 35%,color-mix(in srgb,var(--knob) 80%,#fff 8%),var(--knob) 70%);
+  position:relative;cursor:ns-resize;touch-action:none;border:0;padding:0;box-shadow:0 6px 14px -8px rgba(0,0,0,.6)}
+.knob::before{content:"";position:absolute;inset:-5px;border-radius:50%;background:conic-gradient(from 225deg,var(--arc,var(--ink)) calc(var(--v)*270deg),var(--rule) 0 270deg,transparent 0);
+  -webkit-mask:radial-gradient(circle,transparent 62%,#000 63%);mask:radial-gradient(circle,transparent 62%,#000 63%);z-index:-1}
+.knob i{position:absolute;left:50%;top:10%;width:3px;height:26%;margin-left:-1.5px;background:var(--knob-ind);border-radius:2px;transform-origin:50% 154%;transform:rotate(calc(-135deg + var(--v)*270deg))}
+.knob.lock{--arc:var(--cobalt)}
+.knob.auto::after{content:"";position:absolute;right:1px;top:1px;width:8px;height:8px;border-radius:50%;background:var(--rec)}
+.kn b{font-weight:800;font-size:10px;letter-spacing:.1em}
+.kn span{font-weight:600;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.desc{min-height:2.6em;font-size:14px;color:var(--ink-2);border-left:2px solid var(--rule);padding-left:12px}
+.lockbar{display:none;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--cobalt) 14%,var(--paper));font-size:14px}
+.lockbar.on{display:flex}
+.keys{display:flex;gap:2px;height:46px;position:relative;margin-top:2px}
+.keys button{flex:1;border:1px solid var(--rule);background:var(--paper);border-radius:0 0 5px 5px;cursor:pointer;padding:0;font:600 9px var(--f);color:var(--ink-2);display:flex;align-items:flex-end;justify-content:center}
+.keys button.bk{background:var(--ink);color:var(--paper)}
+.keys button.on{background:var(--cobalt);color:#fff;border-color:var(--cobalt)}
+.grid{display:grid;gap:6px;margin-top:8px}
+.lane{display:grid;grid-template-columns:88px 52px repeat(16,minmax(0,1fr));gap:4px;align-items:center}
+.lname{font:800 10px var(--f);letter-spacing:.1em;text-align:left;background:none;border:0;color:var(--ink-2);cursor:pointer;padding:7px 6px;border-radius:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lane.sel .lname{background:var(--ink);color:var(--paper)}
+.ms{display:flex;gap:3px}
+.ms button{width:23px;height:23px;border-radius:5px;border:1px solid var(--rule);background:transparent;color:var(--ink-2);font:800 9px var(--f);cursor:pointer;padding:0}
+.ms button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.ms button.sol.on{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
+.lane.off .step{opacity:.4}
+.step{position:relative;height:38px;border-radius:6px;border:1px solid var(--rule);background:var(--paper-2);cursor:pointer;padding:0}
+.step.b4{border-color:color-mix(in srgb,var(--ink-2) 50%,var(--rule))}
+.step.on{background:var(--ink);border-color:var(--ink)}
+.step.acc{background:var(--ink);border-color:var(--ink);box-shadow:inset 0 0 0 3px var(--paper),inset 0 0 0 5px var(--ink)}
+.step.head{outline:2px solid var(--ink-2);outline-offset:1px}
+.step.pick{outline:3px solid var(--cobalt);outline-offset:1px;z-index:1}
+.step .lk{position:absolute;left:50%;top:5px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--cobalt);box-shadow:0 0 0 1.5px var(--paper)}
+.step .au{position:absolute;left:50%;bottom:4px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--rec)}
+.step .pr{position:absolute;right:100%;top:50%;height:2px;margin-top:-1px;background:var(--cobalt);pointer-events:none}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.sec{margin-top:40px;display:grid;gap:14px}
+.mixer{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px}
+.strip{display:grid;gap:7px;justify-items:center;padding:10px 6px;border-radius:10px;background:var(--paper-2)}
+.strip b{font-weight:800;font-size:10px;letter-spacing:.1em}
+.strip.sel{box-shadow:inset 0 0 0 2px var(--ink)}
+.fader{display:flex;gap:6px;align-items:flex-end;height:130px}
+.fader input{writing-mode:vertical-lr;direction:rtl;height:130px;width:22px;accent-color:var(--ink)}
+.meter{width:6px;height:130px;border-radius:3px;background:var(--rule);position:relative;overflow:hidden}
+.meter i{position:absolute;left:0;right:0;bottom:0;background:var(--ink);height:0}
+.mini{width:100%;display:grid;gap:2px;font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--ink-2)}
+.mini input{width:100%;accent-color:var(--ink)}
+.fxk{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px 8px}
+.pad{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.pad button{font:800 9px var(--f);letter-spacing:.06em;text-transform:uppercase;min-height:58px;padding:7px;border-radius:9px;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink);cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;text-align:left;touch-action:none;user-select:none;-webkit-user-select:none}
+.pad button i{font-style:normal;font-weight:600;color:var(--ink-2)}
+.pad button.on{background:var(--ink);color:var(--paper)}
+.pad button.on i{color:var(--paper)}
+.card{background:var(--paper-2);border-radius:12px;padding:16px;display:grid;gap:10px;min-width:0}
+.two{display:flex;gap:18px;flex-wrap:wrap}
+.two>.card{flex:1 1 300px}
+.thumb{width:100%;height:64px;image-rendering:pixelated;border-radius:6px;background:#0b0b0a;display:block}
+.notes{display:grid;gap:10px;max-width:74ch;font-size:14px;color:var(--ink-2)}
+.status{font-size:13px;color:var(--ink-2)}
+kbd{font:700 11px var(--f);border:1px solid var(--rule);border-radius:4px;padding:0 5px;background:var(--paper-2);color:var(--ink)}
+.file{position:relative;overflow:hidden}
+.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+@media (max-width:900px){ .mixer,.fxk{grid-template-columns:repeat(4,minmax(0,1fr))} .pad{grid-template-columns:repeat(4,minmax(0,1fr))} }
+@media (max-width:640px){ .lane{grid-template-columns:60px 50px repeat(16,minmax(0,1fr));gap:2px} .step{height:30px} .knobs{gap:10px 4px} .gridwrap{overflow-x:auto} .grid{min-width:640px} }
+</style>
+
+<div class="page">
+  <div class="eyebrow">Groovebox FM-1 · laboratorio</div>
+  <h1>ocho pistas</h1>
+  <p class="lead">El mismo C en punto fijo que va al aparato, corriendo en el navegador: cuatro carriles de percusión, cuatro sintes, mezcladora, efectos, locks por paso y performance. Todo se ajusta a oído.</p>
+
+  <div class="bar">
+    <button class="btn" id="b-on" type="button">Encender</button>
+    <button class="btn ghost" id="b-play" type="button" disabled>Tocar</button>
+    <button class="btn ghost" id="b-hit" type="button" disabled>Golpe</button>
+    <label class="ctl" for="bpm">Tempo<input type="range" id="bpm" min="70" max="180" value="124"><output>124</output></label>
+    <label class="ctl" for="swing">Swing<input type="range" id="swing" min="0" max="60" value="0"><output>0%</output></label>
+    <button class="chip" id="muteq" type="button">Mutes al compás</button>
+    <span class="status" id="status">Enciende para cargar los motores.</span>
+  </div>
+
+  <div class="work">
+    <div class="left">
+      <canvas class="screen" id="scr" width="240" height="240" aria-label="Pantalla del FM-1"></canvas>
+      <div class="row" role="group" aria-label="Qué muestra la pantalla"><span class="lbl">Pantalla</span><button class="chip on" id="v-vis" type="button">Visual</button><button class="chip" id="v-mix" type="button">Mezcla</button></div>
+      <div class="tracksel" id="tracksel" role="group" aria-label="Pistas"></div>
+      <p class="status"><kbd>1</kbd>–<kbd>8</kbd> elige pista · <kbd>shift</kbd>+número silencia · <kbd>alt</kbd>+número solo · <kbd>espacio</kbd> golpe · <kbd>esc</kbd> suelta el paso</p>
+    </div>
+    <div class="right">
+      <div class="thead"><h2 id="tname">bombo</h2><div class="row" id="models" role="group" aria-label="Motor"></div></div>
+      <div class="lockbar" id="lockbar"><span id="locktxt"></span><button class="btn ghost" id="b-unlock" type="button">Quitar locks del paso</button><button class="btn" id="b-done" type="button">Listo</button></div>
+      <div class="pages">
+        <div><div class="ptitle"><span class="lbl">Página 1 · sonido</span></div><div class="knobs" id="k0"></div></div>
+        <div><div class="ptitle"><span class="lbl">Página 2</span></div><div class="knobs" id="k1"></div></div>
+        <div><div class="ptitle"><span class="lbl">Página 3 · mezcla</span><span class="status">también se lockean por paso</span></div><div class="knobs" id="k2"></div></div>
+      </div>
+      <div id="kbwrap" hidden><span class="lbl" id="kblbl">Notas</span><div class="keys" id="keys"></div></div>
+      <p class="desc" id="desc">Arrastra una perilla, usa la rueda o las flechas. Doble clic la regresa a su valor inicial.</p>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="thead"><span class="lbl">Patrón · clic prende, otra vez acento · shift+clic o mantener edita los locks del paso</span>
+      <div class="row"><button class="btn rec" id="b-rec" type="button">Grabar automatización</button><button class="btn ghost" id="b-clr" type="button">Borrar automatización</button></div></div>
+    <div class="gridwrap"><div class="grid" id="grid"></div></div>
+    <div class="legend"><span>Punto azul: el paso tiene locks</span><span>Punto rojo: automatización grabada</span><span>M silencia · S solo</span></div>
+  </div>
+
+  <div class="sec">
+    <div class="thead"><span class="lbl">Mezcladora</span><span class="status">En la pantalla del FM-1 se ve así: elige "Mezcla" arriba.</span></div>
+    <div class="mixer" id="mixer"></div>
+  </div>
+
+  <div class="sec">
+    <span class="lbl">Efectos maestros · delay y reverb reciben los envíos de cada pista</span>
+    <div class="fxk" id="fxk"></div>
+  </div>
+
+  <div class="sec">
+    <div class="thead"><span class="lbl">Performance · varios a la vez</span><div class="row"><button class="chip" id="latch" type="button">Enganchar</button><button class="chip" id="unlatch" type="button">Soltar todos</button><span class="status">Mantén con el mouse o el teclado (<kbd>Q</kbd>–<kbd>I</kbd>, <kbd>A</kbd>–<kbd>K</kbd>); con Enganchar, un clic prende y otro apaga.</span></div></div>
+    <div class="pad" id="pad"></div>
+  </div>
+
+  <div class="sec two">
+    <div class="card">
+      <span class="lbl">La foto del sinte OJO</span>
+      <canvas class="thumb" id="thumb" width="256" height="64" aria-label="La foto como la lee el sinte"></canvas>
+      <div class="row"><span class="btn ghost file">Cargar foto<input type="file" id="f-img" accept="image/*"></span><button class="btn ghost" id="b-img0" type="button">Foto de muestra</button></div>
+      <p class="status">Cada uno de los 64 renglones de pixeles es una forma de onda. FILA elige dónde lee; RECORRIDO la hace bajar o subir por la imagen en cada nota. La foto no sale de tu navegador.</p>
+    </div>
+    <div class="card">
+      <span class="lbl">El sample del sinte CHOPS</span>
+      <canvas class="thumb" id="wave" width="512" height="64" aria-label="Forma de onda del sample, en 16 rebanadas"></canvas>
+      <div class="row"><span class="btn ghost file">Cargar sample<input type="file" id="f-smp" accept="audio/*"></span><button class="btn ghost" id="b-smp0" type="button">Break de muestra</button></div>
+      <p class="status">Se parte en 16 rebanadas; CORTE elige cuál suena. Lockea CORTE por paso para reordenar el break. Hasta 20 s; no sale de tu navegador.</p>
+    </div>
+  </div>
+
+  <div class="sec two">
+    <div class="card">
+      <span class="lbl" id="saved-h">Sonidos guardados</span>
+      <div class="row" id="saved"></div>
+      <div class="row"><button class="btn ghost" id="b-save" type="button">Guardar este sonido</button><button class="btn ghost" id="b-copy" type="button">Copiar ajustes</button></div>
+      <p class="status" id="copynote">Copiar ajustes te da el texto para mandármelo y lo convierto en preset de fábrica.</p>
+    </div>
+  </div>
+
+  <section class="sec notes" id="notes"></section>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const NOTES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const midiOf=v=>24+Math.floor(v*61/128), noteName=m=>NOTES[m%12]+(Math.floor(m/12)-1);
+const valOfSemi=n=>Math.min(127,Math.ceil(n*128/61));     // semitono desde C1 -> valor de NOTA
+
+/* ---------------- motores ---------------- */
+const M=(name,labels,def,desc,note)=>({name,labels,def,desc,note});
+const BOMBO=[
+ M('Barrido con rumble',['TONO','BARRIDO','CAÍDA','DOBLEZ','RUMBLE','CLICK','PEGADA','NIVEL'],[40,60,55,10,25,50,45,110],
+  ['Altura final del golpe, de 28 a 97 Hz.','Cuánto cae la altura al pegar: de sordo a láser.','Cuánto dura el cuerpo.','Pliega la onda: de redondo a áspero.','La cola oscura: más fuerte y más larga a la vez.','Ataque suave o chasquido fuerte encima.','Sostiene hasta 50 ms y satura.','Volumen del motor.'],
+  'Un seno que cae desde varias octavas arriba; DOBLEZ pliega la onda. RUMBLE es una cola de peines oscuros que se agacha con cada golpe.'),
+ M('Membrana',['TONO','TENSIÓN','CAÍDA','MATERIAL','GOLPE','RUMBLE','PEGADA','NIVEL'],[30,55,60,50,70,25,45,110],
+  ['Altura de la piel, de 30 a 120 Hz.','La altura arranca hasta dos octavas arriba y se relaja.','Cuánto vibra la piel.','Blanda (solo el fundamental) o dura (todos los modos).','Mazo blando o palo con chasquido.','La cola oscura.','Sostiene el fundamental y satura.','Volumen del motor.'],
+  'Cuatro modos de una piel circular con sus razones reales.')];
+const CAJA=[
+ M('Caja',['TONO','CUERPO','BORDONA','CAÍDA','BRILLO','GOLPE','PEGADA','NIVEL'],[23,70,85,45,55,60,70,105],
+  ['Afina el tambor entero, 90 a 480 Hz.','El parche debajo de la bordona.','Cuánto chisporrotean los alambres.','La cola de la bordona.','Dónde muerden los alambres: 0.6 a 7 kHz.','Escobilla o aro.','Sostiene y satura.','Volumen del motor.'],
+  'Dos modos del parche que bajan de tono y los alambres en una banda de 0.8 a 4.5 kHz: nada arriba de 6 kHz, así no suena a platillo.'),
+ M('Aplauso',['TONO','PALMAS','SEPARA','CAÍDA','SALA','COLOR','PEGADA','NIVEL'],[55,70,45,50,30,55,40,105],
+  ['Dónde suena la banda: 700 Hz a 2.6 kHz.','Cuántas manos: de un chasquido a seis palmas.','Qué tan separadas llegan: 4 a 30 ms.','La cola de la última palma.','Una cola oscura y larga, como el cuarto.','Banda ancha y crujiente o angosta y con tono.','Sostiene y satura.','Volumen del motor.'],
+  'Ráfagas de ruido muy cortas que no caen juntas, por dos filtros de banda; la última deja la cola y SALA agrega el cuarto.')];
+const METAL=[
+ M('Granizo',['DENSIDAD','CAÍDA','COLOR','RESO','AGITA','GRANO','PEGADA','NIVEL'],[80,30,80,40,0,40,30,100],
+  ['De chisporroteo a siseo.','Hat cerrado a abierto; el siguiente golpe lo ahoga.','Dónde suena: 1.5 a 13 kHz.','De soplo a silbido.','Golpe seco o shaker.','Chispa de ruido o gota con tono.','Hats más gordos.','Volumen del motor.'],
+  'Granos de ruido al azar por un filtro resonante que corre al doble de tasa.'),
+ M('Placa',['TONO','CAÍDA','FORMA','BRILLO','GOLPE','BATIDO','PEGADA','NIVEL'],[50,70,64,95,70,40,20,95],
+  ['Altura de 150 a 1800 Hz.','De 15 ms a 2.6 s.','Gong, campana o platillo.','Cuánto suenan los modos altos.','Mazo o baqueta.','Brillo limpio o clang que bate.','Metal sucio.','Volumen del motor.'],
+  'Seis modos inarmónicos con un gemelo desafinado; FORMA mezcla tres afinaciones reales.')];
+const PERC=[
+ M('Gota',['TONO','GOTA','RESONANCIA','DUREZA','REBOTE','MATERIAL','PEGADA','NIVEL'],[60,40,60,70,0,50,30,100],
+  ['Altura de 80 a 3000 Hz.','Abajo de la mitad la altura cae (tambor); arriba sube (gota de agua).','De madera seca a vidrio que canta.','Mazo blando y apagado o palo duro y brillante.','La pelota cae desde más alto: más rebotes, más espaciados.','El segundo modo: tom, madera, metal, vidrio.','Sostiene y satura.','Volumen del motor.'],
+  'Dos modos afinados con altura que cae o sube; los rebotes se aceleran como una pelota, cada uno más bajo. Va bien con lo latino y lo IDM.'),
+ M('Chatarra',['TONO','CAOS','PEINE','CAÍDA','ROTURA','BITS','RUIDO','NIVEL'],[40,60,60,40,60,30,30,100],
+  ['Altura de 40 a 800 Hz.','Los dos osciladores se empujan la fase: de dos ondas limpias a ruido metálico.','Un peine resonante: de tubo grave a lámina aguda.','De golpe seco a cola de un segundo.','Pliega y recorta: de sucio a roto.','De 16 bits limpios a 3 bits y tasa entre 12.','Arena dentro del caos y encima del golpe.','Volumen del motor.'],
+  'Dos osciladores (cuadrada y sierra a 1.33x) que se modulan la fase uno al otro, por un peine metálico, plegados, recortados y reducidos de bits. Industrial, rasposo y violento.')];
+const SINTES=[
+ M('Ojo',['NOTA','FILA','RECORRIDO','PIXEL','ATAQUE','CAÍDA','UNÍSONO','NIVEL'],[40,20,95,0,40,100,50,95],
+  ['La nota de la pista. Las notas de los pasos se mueven con ella.','Qué renglón de la tabla suena.','Abajo de la mitad sube por la imagen en cada nota; arriba baja.','Menos puntos por ciclo, sin suavizar: lo-fi.','Entrada de 1 ms a 1.5 s.','Cuánto dura la nota.','Tres voces desafinadas: de una a coro.','Volumen del motor.'],
+  'Un wavetable que sale de una foto: cada uno de sus 64 renglones de pixeles es una forma de onda, y FILA y RECORRIDO la recorren. Sube una foto abajo y el sinte suena a esa imagen.'),
+ M('Ácido',['NOTA','CORTE','RESO','ENV','CAÍDA','RUGOSIDAD','GLIDE','NIVEL'],[20,35,95,85,45,0,25,100],
+  ['La nota.','Corte del filtro de 24 dB.','Resonancia: canta sola arriba.','Cuánto abre el filtro cada nota.','Cuánto tarda en cerrar.','Sierra, cuadrada, y de la mitad para arriba sync áspero.','Se desliza desde la nota anterior.','Volumen del motor.'],
+  'Sierra o cuadrada por un filtro escalera que satura por dentro. Los pasos con acento abren más el filtro y suenan más fuerte, como una 303.'),
+ M('Fase rota',['NOTA','FORMA','DCW','ENV DCW','ATAQUE','CAÍDA','CAOS','NIVEL'],[40,0,50,85,0,70,0,92],
+  ['La nota.','Sierra, cuadrada, resonante, trapecio resonante.','Cuánto se dobla la fase: de seno a brillante.','Cuánto se abre al golpe.','Entrada.','Duración.','Otro oscilador mueve la fase: de limpio a metálico.','Volumen del motor.'],
+  'Distorsión de fase como los Casio CZ: el seno se deforma y en los modos resonantes aparece un formante que barre.'),
+ M('Chops',['NOTA','CORTE','LARGO','DIRECCIÓN','FILTRO','BITS','CAÍDA','NIVEL'],[64,0,40,0,64,0,127,110],
+  ['Transposición: −24 a +24 semitonos. Los pasos se mueven con ella.','Cuál de las 16 rebanadas suena. Con locks, recorre todos los chops a la vez.','De un pedazo a cuatro rebanadas.','Abajo de la mitad hacia adelante; arriba en reversa.','Abajo pasabajos, arriba pasaaltos, con resonancia.','De limpio a 2 bits y tasa entre 16.','Cuánto se apaga mientras suena.','Volumen del motor.'],
+  'El sample en 16 rebanadas. Lockear CORTE por paso es reordenar el break; girar CORTE los corre todos.'),
+ M('FM',['NOTA','RAZÓN','ÍNDICE','FEEDBACK','GOLPE','CAÍDA','RUGIDO','NIVEL'],[30,49,60,50,70,50,50,95],
+  ['La nota de la pista.','Razón del modulador: enteras (bajos) o raras: 1.41, 2.76, 5.19, 7.13 (metal).','Cuánto modula: de seno a sierra rota.','El modulador se modula a sí mismo: de limpio a caos.','Al ataque la altura salta hasta 2 octavas y el índice hasta x5: patada de bombo FM.','Duración.','Pliega y satura: de duro a destrozado.','Volumen del motor.'],
+  'FM de techno: un modulador con realimentación profunda sobre una portadora, con un golpe de altura e índice al ataque y plegado encima. Bajos que muerden, stabs metálicos, ruido con nota.'),
+ M('Acorde',['NOTA','TIPO','ABRE','FORMA','CORTE','ENV','CAÍDA','NIVEL'],[40,7,30,20,60,70,35,90],
+  ['La raíz del acorde.','m7, m9, menor, mayor, sus4, quintas, cuartas, disminuido, m11.','Cerrado, raíz una octava abajo, quinta arriba, todo abierto.','Sierra, cuadrada y pulso que se angosta.','Filtro de 24 dB.','Cuánto abre el filtro cada golpe.','Duración del stab y de su filtro.','Volumen del motor.'],
+  'Como la máquina de acordes de la Cycles: cuatro notas desafinadas por un filtro con envolvente. Stabs de dub techno: mándalo al delay.')];
+const MIXP=M('Mezcla',['VOLUMEN','PANEO','DELAY','REVERB'],[100,64,0,0],['Volumen de la pista en la mezcla.','Izquierda, centro, derecha.','Envío al delay maestro.','Envío a la reverb maestra.']);
+const TR=[{name:'BOMBO',models:BOMBO},{name:'CAJA',models:CAJA},{name:'METAL',models:METAL},{name:'PERC',models:PERC},
+  {name:'SINTE A',models:SINTES,m0:1},{name:'SINTE B',models:SINTES,m0:2},{name:'SINTE C',models:SINTES,m0:0},{name:'SINTE D',models:SINTES,m0:3}];
+const hasNote=(t,m)=>t>=4&&m!==3, semiOf=v=>Math.floor(v*61/128);
+const isSynth=t=>t>=4;
+
+/* ---------------- patrón de arranque ---------------- */
+const E=()=>Array.from({length:16},()=>({}));
+function seed(){
+  const steps=[[2,0,0,0,1,0,0,1,0,0,1,0,1,0,0,0],[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],[1,0,2,0,1,0,2,0,1,0,2,0,1,0,2,1],[0,0,1,0,0,0,0,1,0,0,1,0,0,0,0,0],
+    [2,0,1,1,0,1,2,0,1,0,1,1,0,1,2,0],[0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],[1,0,0,1,0,0,1,0,1,0,1,0,0,1,0,0]];
+  const locks=TR.map(()=>E());
+  locks[3][2]={0:70}; locks[3][7]={0:48}; locks[3][10]={0:86,4:50};
+  const acid=[9,0,21,9,0,16,9,0,24,0,21,12,0,9,28,0];   // semitonos desde C1: A1 A2 ... una línea en La menor
+  acid.forEach((n,i)=>{ if(steps[4][i]) locks[4][i]={0:64+n-9}; });                   // relativas a la NOTA de la pista (A1)
+  locks[5][6]={0:64+5}; locks[5][14]={0:64+8,2:80};
+  locks[6][0]={0:64+2}; locks[6][8]={0:64-2};
+  [[0,0],[3,3],[6,6],[8,2],[10,10],[13,13]].forEach(([i,sl])=>locks[7][i]={1:64+sl});    // rebanadas relativas a CORTE
+  locks[1][12]={11:45};    // un paso de caja que se manda a la reverb
+  const mix=[[105,64,0,0],[95,64,0,20],[80,82,0,0],[85,44,40,0],[95,64,0,0],[80,40,50,30],[82,64,10,60],[85,90,0,10]];
+  return {tab:0,tracks:TR.map((x,t)=>({model:x.m0||0,p:x.models.map(m=>m.def.slice()),steps:steps[t],locks:locks[t],auto:E()})),mix,fx:[4,50,70,70,60,64,0,30]};
+}
+const st=Object.assign(seed(),store.get('fm1lab.v4',{}));
+// FM y ACORDE (antes GRANOS) cambiaron de perillas: lo guardado con los motores viejos regresa a sus valores iniciales
+if((st.eng||1)<2){ for(let t=4;t<8;t++) [4,5].forEach(m=>{ st.tracks[t].p[m]=TR[t].models[m].def.slice(); }); st.eng=2; }
+// la anticipación se fue (entra APLAUSO) y TONO de la caja ya no se desborda: se convierte para que suene igual
+if(st.eng<3){ const c=st.tracks[1]; c.p[1]=TR[1].models[1].def.slice(); const v=c.p[0][0]; c.p[0][0]=Math.round(((v*158269440)%4294967296)/158269440); st.eng=3; }
+st.mute=new Array(8).fill(0); st.solo=new Array(8).fill(0);
+const persist=()=>store.set('fm1lab.v4',{tab:st.tab,tracks:st.tracks,mix:st.mix,fx:st.fx,eng:st.eng});
+let pT=0; const persistSoon=()=>{ clearTimeout(pT); pT=setTimeout(persist,300); };
+const T_=()=>st.tracks[st.tab], MD=()=>TR[st.tab].models[T_().model];
+let ac=null,node=null,playing=false,head=-1,rec=false,pick=null,TAB=null,SMP=null;
+const levels=new Array(8).fill(0), rows=[-1,-1,-1,-1];
+const post=m=>node&&node.port.postMessage(m);
+
+/* ---------------- pista elegida ---------------- */
+function drawTrackSel(){ $('#tracksel').innerHTML=TR.map((x,t)=>`<button class="chip${t===st.tab?' on':''}${st.mute[t]?' mut':''}" data-t="${t}" type="button">${t+1} ${x.name}</button>`).join('');
+  $('#tracksel').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>setTab(+b.dataset.t)); }
+function setTab(t){ st.tab=t; pick=null; drawTrackSel(); drawPanel(); drawGrid(); drawMixer(); drawSaved(); drawNotes(); persistSoon(); }
+const knobs=[];
+function buildKnobs(){ ['#k0','#k1','#k2'].forEach((sel,pg)=>{ const box=$(sel); box.innerHTML='';
+  for(let k=0;k<4;k++){ const i=pg*4+k, d=document.createElement('div'); d.className='kn'; d.innerHTML=`<button class="knob" type="button"><i></i></button><b></b><span></span>`; box.appendChild(d);
+    knobs[i]={kb:d.querySelector('.knob'),lab:d.querySelector('b'),val:d.querySelector('span')}; wireKnob(knobs[i].kb,i); } }); }
+function info(i){ return i<8?{lab:MD().labels[i],desc:MD().desc[i],def:MD().def[i]}:{lab:MIXP.labels[i-8],desc:MIXP.desc[i-8],def:MIXP.def[i-8]}; }
+function baseVal(i){ const tr=T_(); return i<8?tr.p[tr.model][i]:st.mix[st.tab][i-8]; }
+function curVal(i){ const l=pick!=null?T_().locks[pick][i]:undefined; return l!=null?l:(pick!=null&&relParam(i)?64:baseVal(i)); }
+const relParam=i=>isSynth(st.tab)&&(i===0||(i===1&&T_().model===3));
+function relShown(i){ return pick!=null&&relParam(i); }
+function fmt(i,v){ const t=st.tab, m=T_().model;
+  if(relShown(i)){ const d=v-64, b=T_().p[m][i];
+    if(i===0&&m!==3) return noteName(24+Math.max(0,Math.min(60,semiOf(b)+d)))+' ('+(d>0?'+':'')+d+')';
+    if(i===0) return (d>0?'+':'')+d+' st';
+    return 'R '+((((Math.floor(b*16/128)+d)%16)+16)%16+1)+' ('+(d>0?'+':'')+d+')'; }
+  if(i===0&&isSynth(t)&&m!==3) return noteName(midiOf(v));
+  if(i===0&&isSynth(t)&&m===3){ const s=Math.floor(v*49/128)-24; return (s>0?'+':'')+s+' st'; }
+  if(isSynth(t)&&m===3&&i===1) return 'R '+(Math.floor(v*16/128)+1);
+  if(isSynth(t)&&m===3&&i===3) return v<64?'ADELANTE':'REVERSA';
+  if(isSynth(t)&&m===4&&i===1) return ['×.5','×1','×1.41','×2','×2.76','×3','×3.5','×5.19','×7.13'][Math.floor(v*9/128)];
+  if(isSynth(t)&&m===5&&i===1) return ['m7','m9','MENOR','MAYOR','SUS4','QUINTAS','CUARTAS','DISM','m11'][Math.floor(v*9/128)];
+  if(isSynth(t)&&m===5&&i===2) return ['CERRADO','RAÍZ ABAJO','5a ARRIBA','ABIERTO'][Math.floor(v*4/128)];
+  if(t===1&&m===1&&i===4) return v===0?'NO':(1+Math.floor(v*3/127))+' P';
+  if(t===3&&m===0&&i===1) return v<60?'CAE':v>68?'SUBE':'QUIETA';
+  if(i===9) return v<60?'I'+(64-v):v>68?'D'+(v-64):'C';
+  return String(v); }
+function drawPanel(){
+  const t=st.tab, tr=T_();
+  $('#tname').innerHTML=TR[t].name.toLowerCase()+`<b>${MD().name}</b>`;
+  $('#models').innerHTML=TR[t].models.map((x,k)=>`<button class="chip${k===tr.model?' on':''}" data-m="${k}" type="button">${x.name}</button>`).join('');
+  $('#models').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ tr.model=+b.dataset.m; post({type:'model',t,m:tr.model}); drawPanel(); drawGrid(); drawNotes(); drawSaved(); persistSoon(); });
+  knobs.forEach((K,i)=>{ const v=curVal(i), inf=info(i); K.kb.style.setProperty('--v',v/127); K.lab.textContent=inf.lab; K.val.textContent=fmt(i,v);
+    K.kb.setAttribute('aria-label',inf.lab+' '+fmt(i,v)); K.kb.classList.toggle('lock',pick!=null&&tr.locks[pick][i]!=null);
+    K.kb.classList.toggle('auto',i<8&&tr.auto.some(a=>a[i]!=null)); });
+  $('#lockbar').classList.toggle('on',pick!=null);
+  if(pick!=null){ const n=Object.keys(tr.locks[pick]).length; $('#locktxt').innerHTML=`<b>Paso ${pick+1}</b> · las perillas graban locks solo en este paso${n?` · ${n} lock${n>1?'s':''}`:''}`; }
+  const kbOn=hasNote(t,tr.model); $('#kbwrap').hidden=!kbOn; if(kbOn) drawKeys();
+}
+function setVal(i,v,fromAuto){
+  v=Math.max(0,Math.min(127,Math.round(v))); const t=st.tab, tr=T_();
+  if(pick!=null&&!fromAuto){ tr.locks[pick][i]=v; post({type:'locks',t,locks:tr.locks}); drawGrid(); }
+  else if(i<8){ if(tr.p[tr.model][i]===v) return; tr.p[tr.model][i]=v; post({type:'param',t,m:tr.model,i,v});
+    if(!fromAuto&&rec&&playing&&head>=0){ tr.auto[head][i]=v; post({type:'auto',t,auto:tr.auto}); drawGrid(); } }
+  else { st.mix[t][i-8]=v; post({type:'mix',t,i:i-8,v}); syncStrip(t); showOv(TR[t].name+' · '+MIXP.labels[i-8],fmt(i,v)); }
+  const K=knobs[i]; K.kb.style.setProperty('--v',v/127); K.val.textContent=fmt(i,v); K.kb.classList.toggle('lock',pick!=null&&tr.locks[pick][i]!=null);
+  if(!fromAuto){ showDesc(i); persistSoon(); if(t===1&&i===4) drawGrid(); }
+}
+function wireKnob(kb,i){
+  let y=null,acc=0;
+  kb.addEventListener('pointerdown',e=>{ y=e.clientY; acc=curVal(i); try{kb.setPointerCapture(e.pointerId);}catch(_){} showDesc(i); });
+  kb.addEventListener('pointermove',e=>{ if(y==null) return; acc+=(y-e.clientY)*(e.shiftKey?.15:.6); y=e.clientY; setVal(i,acc); });
+  const up=()=>{ y=null; }; kb.addEventListener('pointerup',up); kb.addEventListener('pointercancel',up);
+  kb.addEventListener('wheel',e=>{ e.preventDefault(); setVal(i,curVal(i)+(e.deltaY<0?2:-2)); },{passive:false});
+  kb.addEventListener('keydown',e=>{ const d={ArrowUp:1,ArrowRight:1,ArrowDown:-1,ArrowLeft:-1,PageUp:10,PageDown:-10}[e.key]; if(d){ e.preventDefault(); setVal(i,curVal(i)+d); } });
+  kb.addEventListener('dblclick',()=>{ if(pick!=null){ delete T_().locks[pick][i]; post({type:'locks',t:st.tab,locks:T_().locks}); drawPanel(); drawGrid(); } else setVal(i,info(i).def); });
+  kb.addEventListener('focus',()=>showDesc(i)); kb.addEventListener('mouseenter',()=>showDesc(i));
+}
+function showDesc(i){ const inf=info(i); $('#desc').innerHTML=`<b>${inf.lab}</b> · ${inf.desc}${pick!=null?' <i>Doble clic quita el lock.</i>':''}`; }
+$('#b-unlock').onclick=()=>{ if(pick==null) return; T_().locks[pick]={}; post({type:'locks',t:st.tab,locks:T_().locks}); drawPanel(); drawGrid(); persistSoon(); };
+$('#b-done').onclick=()=>{ pick=null; drawPanel(); drawGrid(); };
+
+/* teclado de notas para los sintes: con un paso elegido lockea su NOTA; si no, suena */
+function drawKeys(){ const box=$('#keys'); box.innerHTML=''; const tr=T_(), b=tr.p[tr.model][0], lk=pick!=null?tr.locks[pick][0]:undefined, cur=24+(lk!=null?semiOf(b)+lk-64:semiOf(b));
+  for(let n=24;n<=48;n++){ const semi=n, m=36+semi-24+0; const b=document.createElement('button'); b.type='button'; const pc=(m)%12, black=[1,3,6,8,10].includes(pc);
+    b.className=(black?'bk':'')+(m===cur?' on':''); b.textContent=pc===0?noteName(m):''; b.setAttribute('aria-label',noteName(m));
+    b.onclick=()=>{ const rel=Math.max(0,Math.min(127,64+(m-24)-semiOf(tr.p[tr.model][0]))); if(pick!=null) setVal(0,rel); else post({type:'trig',t:st.tab,vel:110,locks:{0:rel}}); };
+    box.appendChild(b); }
+  $('#kblbl').textContent=pick!=null?`Nota del paso ${pick+1}`:'Tocar notas (C2–C4)'; }
+
+/* ---------------- patrón ---------------- */
+const grid=$('#grid'), rowsEl=[];
+TR.forEach((x,t)=>{ const r=document.createElement('div'); r.className='lane';
+  const nm=document.createElement('button'); nm.className='lname'; nm.type='button'; nm.textContent=(t+1)+' '+x.name; nm.onclick=()=>setTab(t); r.appendChild(nm);
+  const ms=document.createElement('div'); ms.className='ms'; ms.innerHTML=`<button type="button" class="mu" aria-label="Silenciar ${x.name}">M</button><button type="button" class="sol" aria-label="Solo ${x.name}">S</button>`; r.appendChild(ms);
+  ms.querySelector('.mu').onclick=()=>toggleMute(t); ms.querySelector('.sol').onclick=()=>toggleSolo(t);
+  const btns=[];
+  for(let i=0;i<16;i++){ const b=document.createElement('button'); b.type='button'; b.setAttribute('aria-label',`${x.name} paso ${i+1}`);
+    let timer=null, long=false;
+    b.addEventListener('pointerdown',e=>{ long=false; timer=setTimeout(()=>{ long=true; pickStep(t,i); },420); });
+    b.addEventListener('pointerup',e=>{ clearTimeout(timer); if(long) return; if(e.shiftKey){ pickStep(t,i); return; } const tr=st.tracks[t]; tr.steps[i]=(tr.steps[i]+1)%3; post({type:'steps',t,steps:tr.steps}); drawGrid(); persistSoon(); });
+    b.addEventListener('pointerleave',()=>clearTimeout(timer));
+    b.addEventListener('contextmenu',e=>e.preventDefault());
+    r.appendChild(b); btns.push(b); }
+  grid.appendChild(r); rowsEl.push({r,btns,ms}); });
+function pickStep(t,i){ if(st.tab!==t) setTab(t); pick=pick===i?null:i; drawPanel(); drawGrid(); if(pick!=null) showDesc(0); }
+function ahead(){ return 0; }
+function drawGrid(){ rowsEl.forEach(({r,btns,ms},t)=>{ const tr=st.tracks[t], A=ahead(t); r.classList.toggle('sel',t===st.tab); r.classList.toggle('off',!!st.mute[t]||(st.solo.some(Boolean)&&!st.solo[t]));
+  ms.querySelector('.mu').classList.toggle('on',!!st.mute[t]); ms.querySelector('.sol').classList.toggle('on',!!st.solo[t]);
+  btns.forEach((b,i)=>{ b.className='step'+(i%4===0?' b4':'')+(tr.steps[i]===1?' on':tr.steps[i]===2?' acc':'')+(i===head&&playing?' head':'')+(t===st.tab&&i===pick?' pick':'');
+    b.innerHTML=(Object.keys(tr.locks[i]||{}).length?'<i class="lk"></i>':'')+(Object.keys(tr.auto[i]||{}).length?'<i class="au"></i>':'')+(A&&tr.steps[i]?`<i class="pr" style="width:calc(${A*100}% + ${A*4}px)"></i>`:''); }); }); }
+
+/* ---------------- mutes: inmediatos o al compás ---------------- */
+let muteQ=false;
+function sendMutes(now){ post({type:'mute',mute:st.mute.slice(),solo:st.solo.slice(),now}); drawTrackSel(); drawGrid(); drawMixer(); }
+function toggleMute(t){ st.mute[t]=st.mute[t]?0:1; sendMutes(); showOv(TR[t].name,st.mute[t]?'MUTE':'SUENA'); }
+function toggleSolo(t){ st.solo[t]=st.solo[t]?0:1; sendMutes(); showOv(TR[t].name,st.solo[t]?'SOLO':'SIN SOLO'); }
+$('#muteq').onclick=()=>{ muteQ=!muteQ; $('#muteq').classList.toggle('on',muteQ); post({type:'muteq',on:muteQ}); };
+
+/* ---------------- mezcladora ---------------- */
+const mixer=$('#mixer'), strips=[];
+TR.forEach((x,t)=>{ const s=document.createElement('div'); s.className='strip';
+  s.innerHTML=`<b>${t+1} ${x.name.replace('SINTE ','S')}</b><div class="fader"><input type="range" min="0" max="127" aria-label="Volumen ${x.name}"><div class="meter"><i></i></div></div>
+    <label class="mini">PANEO<input type="range" min="0" max="127" data-i="1"></label><label class="mini">DELAY<input type="range" min="0" max="127" data-i="2"></label><label class="mini">REVERB<input type="range" min="0" max="127" data-i="3"></label>
+    <div class="ms"><button type="button" class="mu">M</button><button type="button" class="sol">S</button></div>`;
+  mixer.appendChild(s);
+  const fader=s.querySelector('.fader input'); fader.oninput=()=>mixSet(t,0,+fader.value);
+  s.querySelectorAll('.mini input').forEach(r=>r.oninput=()=>mixSet(t,+r.dataset.i,+r.value));
+  s.querySelector('.mu').onclick=()=>toggleMute(t); s.querySelector('.sol').onclick=()=>toggleSolo(t);
+  s.querySelector('b').onclick=()=>setTab(t);
+  strips.push({s,fader,minis:[...s.querySelectorAll('.mini input')],meter:s.querySelector('.meter i')}); });
+function mixSet(t,i,v){ st.mix[t][i]=v; post({type:'mix',t,i,v}); if(t===st.tab) drawPanel(); persistSoon(); showOv(TR[t].name+' · '+MIXP.labels[i],String(v)); }
+function syncStrip(t){ const S=strips[t]; S.fader.value=st.mix[t][0]; S.minis.forEach((r,k)=>r.value=st.mix[t][k+1]); }
+function drawMixer(){ strips.forEach((S,t)=>{ syncStrip(t); S.s.classList.toggle('sel',t===st.tab); S.s.querySelector('.mu').classList.toggle('on',!!st.mute[t]); S.s.querySelector('.sol').classList.toggle('on',!!st.solo[t]); }); }
+
+/* ---------------- efectos maestros ---------------- */
+const FXN=[['DELAY TIEMPO','La división del delay: 1/32 a 1/2.',v=>['1/32','1/16','3/32','1/8','3/16','1/4','3/8','1/2'][Math.floor(v*8/128)]],['DELAY REPITE','Cuántas veces regresa.'],['DELAY TONO','Ecos oscuros o brillantes.'],
+  ['REVERB TAMAÑO','De cuarto a catedral.'],['REVERB TONO','Oscura o brillante.'],['FILTRO','DJ: abajo pasabajos, arriba pasaaltos.',v=>v<61?'LP '+(64-v):v>67?'HP '+(v-64):'—'],['DRIVE','Satura toda la mezcla.'],['COMPRESIÓN','Pega la mezcla y la sube.']];
+const fxk=$('#fxk'), fxKnobs=[];
+FXN.forEach(([lab,desc,f],i)=>{ const d=document.createElement('div'); d.className='kn'; d.innerHTML=`<button class="knob" type="button" aria-label="${lab}"><i></i></button><b>${lab}</b><span></span>`; fxk.appendChild(d);
+  const kb=d.querySelector('.knob'), sp=d.querySelector('span'); fxKnobs.push({kb,sp,f});
+  let y=null,acc=0; const set=v=>{ v=Math.max(0,Math.min(127,Math.round(v))); st.fx[i]=v; post({type:'fx',i,v}); kb.style.setProperty('--v',v/127); sp.textContent=f?f(v):v; persistSoon(); };
+  kb.addEventListener('pointerdown',e=>{ y=e.clientY; acc=st.fx[i]; try{kb.setPointerCapture(e.pointerId);}catch(_){} $('#desc').innerHTML=`<b>${lab}</b> · ${desc}`; });
+  kb.addEventListener('pointermove',e=>{ if(y==null) return; acc+=(y-e.clientY)*.6; y=e.clientY; set(acc); });
+  kb.addEventListener('pointerup',()=>y=null);
+  kb.addEventListener('wheel',e=>{ e.preventDefault(); set(st.fx[i]+(e.deltaY<0?2:-2)); },{passive:false});
+  kb.addEventListener('keydown',e=>{ const dd={ArrowUp:1,ArrowRight:1,ArrowDown:-1,ArrowLeft:-1}[e.key]; if(dd){ e.preventDefault(); set(st.fx[i]+dd); } });
+  kb.addEventListener('dblclick',()=>set([4,50,70,70,60,64,0,30][i]));
+});
+function drawFx(){ fxKnobs.forEach((K,i)=>{ K.kb.style.setProperty('--v',st.fx[i]/127); K.sp.textContent=K.f?K.f(st.fx[i]):st.fx[i]; }); }
+
+/* ---------------- performance ---------------- */
+const PADS=[['rep4','REPITE 1/4','seq'],['rep8','REPITE 1/8','seq'],['stut16','STUTTER 1/16',128],['stut32','STUTTER 1/32',256],['rev','REVERSA',512],['half','MEDIO TIEMPO',1024],['brake','FRENO',2048],['gate','GATE',8],
+  ['lp','FILTRO GRAVE',1],['hp','FILTRO AGUDO',2],['bits','BITS',4],['eco','ECO',16],['freeze','CONGELA',32],['soloperc','SOLO PERC','seq'],['nokick','SIN BOMBO','seq'],['riser','SUBIDA',64]];
+const PKEYS='qwertyuiasdfghjk', held=new Set(); let latch=false;
+const pad=$('#pad');
+PADS.forEach(([id,name],i)=>{ const b=document.createElement('button'); b.type='button'; b.dataset.id=id; b.innerHTML=`<span>${name}</span><i>${PKEYS[i].toUpperCase()}</i>`;
+  b.addEventListener('pointerdown',e=>{ e.preventDefault(); try{b.setPointerCapture(e.pointerId);}catch(_){} if(latch){ held.has(id)?held.delete(id):held.add(id); } else held.add(id); sendPerf(); });
+  const off=()=>{ if(latch) return; held.delete(id); sendPerf(); }; b.addEventListener('pointerup',off); b.addEventListener('pointercancel',off);
+  pad.appendChild(b); });
+$('#latch').onclick=()=>{ latch=!latch; $('#latch').classList.toggle('on',latch); };
+$('#unlatch').onclick=()=>{ held.clear(); sendPerf(); };
+function sendPerf(){ let flags=0; const seq={}; PADS.forEach(([id,,f])=>{ if(!held.has(id)) return; if(f==='seq') seq[id]=1; else flags|=f; });
+  post({type:'perf',flags,seq}); pad.querySelectorAll('button').forEach(b=>b.classList.toggle('on',held.has(b.dataset.id))); }
+
+/* ---------------- audio ---------------- */
+function defaultSample(){ const sr=22050, len=Math.round(sr*60/124*8), a=new Int16Array(len); let s=7; const rnd=()=>{ s=(s*1103515245+12345)>>>0; return s/4294967296*2-1; };
+  const hits=[[0,'k'],[3,'h'],[4,'s'],[6,'k'],[8,'h'],[10,'k'],[12,'s'],[14,'h'],[16,'k'],[19,'k'],[20,'s'],[22,'h'],[24,'k'],[27,'h'],[28,'s'],[30,'s']], stp=sr*60/124/4;
+  for(const [k,t] of hits){ const o=Math.round(k*stp); for(let i=0;i<stp*3&&o+i<len;i++){ const tt=i/sr; let v=0;
+    if(t==='k') v=Math.sin(2*Math.PI*(50+120*Math.exp(-tt*40))*tt)*Math.exp(-tt*9);
+    if(t==='s') v=(rnd()*.7+Math.sin(2*Math.PI*190*tt)*.4)*Math.exp(-tt*18);
+    if(t==='h') v=rnd()*Math.exp(-tt*60)*.5;
+    a[o+i]=Math.max(-32767,Math.min(32767,a[o+i]+v*29000)); } }
+  return {data:a,rate:sr}; }
+async function powerOn(){
+  $('#b-on').disabled=true; $('#status').textContent='Cargando los motores…';
+  try{
+    ac=new (window.AudioContext||window.webkitAudioContext)();
+    const [bytes]=await Promise.all([fetch('motores.wasm').then(r=>{ if(!r.ok) throw new Error('motores.wasm '+r.status); return r.arrayBuffer(); }),ac.audioWorklet.addModule('worklet.js')]);
+    node=new AudioWorkletNode(ac,'lab',{outputChannelCount:[2]}); node.connect(ac.destination);
+    node.port.onmessage=e=>onMsg(e.data);
+    const params=[]; st.tracks.forEach((tr,t)=>tr.p.forEach((arr,m)=>arr.forEach((v,i)=>params.push([t,m,i,v]))));
+    SMP=SMP||defaultSample();
+    node.port.postMessage({type:'wasm',bytes,state:{models:st.tracks.map(x=>x.model),params,mix:st.mix,fx:st.fx},sample:{data:SMP.data.slice(),rate:SMP.rate}},[bytes]);
+  }catch(err){ $('#status').textContent='No se pudieron cargar los motores: '+err.message; $('#b-on').disabled=false; }
+}
+function onMsg(d){
+  if(d.type==='ready'){ TAB=d.table; drawThumb(); drawWave(); $('#status').textContent='Listo. Toca, gira, escucha.'; $('#b-on').textContent='Encendido'; ['#b-hit','#b-play'].forEach(s=>$(s).disabled=false);
+    st.tracks.forEach((tr,t)=>{ post({type:'steps',t,steps:tr.steps}); post({type:'locks',t,locks:tr.locks}); post({type:'auto',t,auto:tr.auto}); });
+    post({type:'bpm',bpm:+$('#bpm').value}); post({type:'swing',swing:+$('#swing').value}); togglePlay(true); return; }
+  if(d.type==='step'){ head=d.step; st.tracks.forEach((tr,t)=>{ const a=tr.auto[d.step]; if(a&&!(rec&&t===st.tab)) for(const k in a){ tr.p[tr.model][+k]=a[k]; if(t===st.tab&&pick==null){ const K=knobs[+k]; K.kb.style.setProperty('--v',a[k]/127); K.val.textContent=fmt(+k,a[k]); } } });
+    d.hits.forEach(([t,v,lk])=>spawn(t,v,lk)); drawGrid(); }
+  if(d.type==='hit') spawn(d.t,d.vel,d.lk||{});
+  if(d.type==='pre') spawnPre(d.t,d.ms);
+  if(d.type==='levels'){ d.lv.forEach((x,t)=>{ levels[t]=Math.max(x,levels[t]*.85); strips[t].meter.style.height=Math.min(100,Math.sqrt(levels[t])*130)+'%'; }); d.rows.forEach((r,k)=>rows[k]=r); }
+  if(d.type==='muted'){ st.mute=d.mute.slice(); st.solo=d.solo.slice(); drawTrackSel(); drawGrid(); drawMixer(); }
+}
+function togglePlay(force){ playing=force!=null?force:!playing; post({type:'play',on:playing}); $('#b-play').textContent=playing?'Parar':'Tocar'; if(!playing){ head=-1; drawGrid(); } }
+$('#b-on').onclick=powerOn; $('#b-play').onclick=()=>togglePlay();
+$('#b-hit').onclick=()=>post({type:'trig',t:st.tab,vel:110,locks:pick!=null?T_().locks[pick]:{}});
+[['bpm',v=>v,v=>post({type:'bpm',bpm:v})],['swing',v=>v+'%',v=>post({type:'swing',swing:v})]].forEach(([id,f,fn])=>{ const el=$('#'+id); el.oninput=()=>{ el.nextElementSibling.textContent=f(+el.value); fn(+el.value); }; });
+$('#b-rec').onclick=()=>{ rec=!rec; $('#b-rec').classList.toggle('on',rec); $('#b-rec').textContent=rec?'Grabando…':'Grabar automatización'; if(rec&&!playing&&node) togglePlay(true); };
+$('#b-clr').onclick=()=>{ T_().auto=E(); post({type:'auto',t:st.tab,auto:T_().auto}); drawGrid(); drawPanel(); persistSoon(); };
+addEventListener('keydown',e=>{
+  if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const dig=/^Digit([1-8])$/.exec(e.code);
+  if(dig){ e.preventDefault(); const t=+dig[1]-1; if(e.shiftKey) toggleMute(t); else if(e.altKey) toggleSolo(t); else setTab(t); return; }
+  if(e.key==='Escape'){ pick=null; drawPanel(); drawGrid(); return; }
+  if(e.key===' '&&document.activeElement.tagName!=='BUTTON'){ e.preventDefault(); $('#b-hit').click(); return; }
+  if(e.repeat||e.metaKey||e.ctrlKey) return;
+  const pi=PKEYS.indexOf(e.key.toLowerCase()); if(pi>=0){ const id=PADS[pi][0]; if(latch){ held.has(id)?held.delete(id):held.add(id); } else held.add(id); sendPerf(); }
+});
+addEventListener('keyup',e=>{ const pi=PKEYS.indexOf(e.key.toLowerCase()); if(pi>=0&&!latch){ held.delete(PADS[pi][0]); sendPerf(); } });
+
+/* ---------------- foto y sample ---------------- */
+function drawThumb(){ if(!TAB) return; const c=$('#thumb').getContext('2d'), im=c.createImageData(256,64);
+  for(let i=0;i<256*64;i++){ const v=(TAB[i]/30000*.5+.5)*255; im.data[i*4]=im.data[i*4+1]=im.data[i*4+2]=v; im.data[i*4+3]=255; } c.putImageData(im,0,0); }
+function drawWave(){ if(!SMP) return; const cv=$('#wave'), c=cv.getContext('2d'), w=cv.width, h=cv.height, a=SMP.data;
+  c.fillStyle='#0b0b0a'; c.fillRect(0,0,w,h); c.fillStyle='#F2EEE4';
+  for(let x=0;x<w;x++){ let pk=0; const i0=Math.floor(x*a.length/w), i1=Math.floor((x+1)*a.length/w); for(let i=i0;i<i1;i++) pk=Math.max(pk,Math.abs(a[i])); const hh=pk/32768*h*.9; c.fillRect(x,(h-hh)/2,1,Math.max(1,hh)); }
+  c.fillStyle='rgba(125,147,255,.8)'; for(let s=1;s<16;s++) c.fillRect(Math.round(s*w/16),0,1,h); }
+$('#f-img').onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
+  const bmp=await createImageBitmap(f), c=document.createElement('canvas'); c.width=256; c.height=64; const x=c.getContext('2d'); x.drawImage(bmp,0,0,256,64);
+  const px=x.getImageData(0,0,256,64).data, tab=new Int16Array(256*64);
+  for(let r=0;r<64;r++){ const row=new Float32Array(256); for(let k=0;k<256;k++){ const o=(r*256+k)*4; row[k]=.299*px[o]+.587*px[o+1]+.114*px[o+2]; }
+    for(let k=0;k<16;k++){ const w=k/16; row[255-15+k]=row[255-15+k]*(1-w)+row[k]*w; }   // cerrar el ciclo sin clic
+    let mean=0; for(const v of row) mean+=v; mean/=256; let pk=1; for(const v of row) pk=Math.max(pk,Math.abs(v-mean));
+    for(let k=0;k<256;k++) tab[r*256+k]=Math.round((row[k]-mean)/pk*30000); }
+  TAB=tab; post({type:'table',data:tab}); drawThumb(); $('#status').textContent='Foto cargada en el sinte OJO.'; };
+$('#b-img0').onclick=()=>{ $('#status').textContent='Para volver a la foto de muestra, recarga la página.'; };
+$('#f-smp').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; if(!ac){ $('#status').textContent='Enciende primero.'; return; }
+  const buf=await ac.decodeAudioData(await f.arrayBuffer()), n=Math.min(buf.length,Math.round(buf.sampleRate*20)), a=new Int16Array(n);
+  const ch=[...Array(buf.numberOfChannels)].map((_,c)=>buf.getChannelData(c)); let pk=1e-6;
+  for(let i=0;i<n;i++){ let v=0; for(const c of ch) v+=c[i]; v/=ch.length; a[i]=v*32767; pk=Math.max(pk,Math.abs(v)); }
+  if(pk<.9) for(let i=0;i<n;i++) a[i]=Math.round(a[i]/pk*.9);
+  SMP={data:a,rate:buf.sampleRate}; post({type:'sample',data:a.slice(),rate:buf.sampleRate}); drawWave(); $('#status').textContent='Sample cargado en CHOPS.'; };
+$('#b-smp0').onclick=()=>{ SMP=defaultSample(); post({type:'sample',data:SMP.data.slice(),rate:SMP.rate}); drawWave(); };
+
+/* ---------------- sonidos guardados ---------------- */
+let saved=store.get('fm1lab.saved4',[]);
+function drawSaved(){ const key=st.tab+':'+T_().model, mine=saved.map((s,k)=>[s,k]).filter(([s])=>s.key===key);
+  $('#saved-h').textContent='Sonidos guardados · '+TR[st.tab].name.toLowerCase()+' · '+MD().name.toLowerCase();
+  $('#saved').innerHTML=mine.length?mine.map(([s,k])=>`<button class="chip" data-k="${k}" type="button">${s.name}</button>`).join(''):'<span class="status">Aún no guardas ninguno.</span>';
+  $('#saved').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ const s=saved[+b.dataset.k], tr=T_(); s.p.forEach((v,i)=>{ tr.p[tr.model][i]=v; post({type:'param',t:st.tab,m:tr.model,i,v}); }); drawPanel(); persistSoon(); }); }
+$('#b-save').onclick=()=>{ const key=st.tab+':'+T_().model, n=saved.filter(s=>s.key===key).length+1; saved.push({key,name:MD().name.split(' ')[0].toUpperCase().slice(0,6)+' '+n,p:T_().p[T_().model].slice()}); store.set('fm1lab.saved4',saved); drawSaved(); };
+$('#b-copy').onclick=()=>{ const tr=T_(), m=MD();
+  const txt=JSON.stringify({pista:TR[st.tab].name,modelo:m.name,valores:Object.fromEntries(m.labels.map((l,i)=>[l,tr.p[tr.model][i]])),mezcla:Object.fromEntries(MIXP.labels.map((l,i)=>[l,st.mix[st.tab][i]])),
+    locks:tr.locks.map((lk,i)=>Object.keys(lk).length?{paso:i+1,...Object.fromEntries(Object.entries(lk).map(([k,v])=>[(+k<8?m.labels[k]:MIXP.labels[k-8]),v]))}:null).filter(Boolean)});
+  const done=()=>{$('#copynote').textContent='Copiado. Pégamelo en el chat.';};
+  navigator.clipboard?navigator.clipboard.writeText(txt).then(done,()=>{ $('#copynote').textContent=txt; }):($('#copynote').textContent=txt); };
+function drawNotes(){ $('#notes').innerHTML=`<h2>Cómo está hecho</h2><p><b>${MD().name}.</b> ${MD().note}</p>
+  <p><b>Locks por paso.</b> Shift+clic (o mantener) en un paso y gira perillas: ese valor suena solo en ese paso. Valen las 12 perillas, también las de mezcla: un paso puede mandarse solo al delay o a la reverb, como en la Cycles. La nota de cada paso es relativa a la NOTA de la pista: girar NOTA transpone la melodía entera. En chops, CORTE hace lo mismo con las rebanadas.</p>
+  <p><b>Mutes.</b> M y S en cada pista, o shift/alt + número. Con "Mutes al compás" los cambios esperan al inicio del siguiente compás, para entrar y salir a tiempo.</p>
+  <p><b>Performance.</b> Varios a la vez, sostenidos o enganchados. REPITE 1/4 y 1/8 repiten pasos del secuenciador. STUTTER, REVERSA, MEDIO TIEMPO y FRENO leen la cinta de lo que acaba de sonar: el stutter repite el audio exacto, la reversa lo toca al revés, medio tiempo lo baja una octava y el freno lo detiene como un tocadiscos. Se combinan: STUTTER + REVERSA es un loop al revés; STUTTER + MEDIO TIEMPO, un loop lento. FILTROS, BITS, GATE, ECO, CONGELA y SUBIDA mueven la mezcla.</p>
+  <p><b>La mezcla en el FM-1.</b> GLO abre la vista de mezcla en la pantalla: una columna por pista con su volumen, lo que suena, paneo, delay y reverb, y su número abajo (1–8, igual que las teclas negras que las eligen). Las negras 1–8 eligen pista; los knobs 1–4 son volumen, paneo, delay y reverb; las blancas 1–8 silencian y las 9–16 dejan en solo. Mantener GLO mientras tocas blancas hace que los mutes entren al compás. Los números solo aparecen al girar.</p>
+  <p><b>Para el aparato.</b> Todo en enteros, sin float ni libc; compila con el toolchain del FM-1. Falta medir ciclos reales cuando llegue.</p>`; }
+
+/* ---------------- pantalla: cada pista dibuja, y su tamaño sigue a su volumen ---------------- */
+const W=240, cv=$('#scr'), ctx=cv.getContext('2d'), img=ctx.createImageData(W,W), buf=new Float32Array(W*W), o2=new Float32Array(W*W), tmp=new Float32Array(W*W);
+const BAY=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>(v+.5)/16), FG=[242,238,228], BG=[11,11,10];
+const hist=Array.from({length:120},()=>new Float32Array(W*W)); let hp=0, hn=0, loopSnap=null, loopId=null, loopN=0;
+const ents=[]; const hash=n=>{const x=Math.sin(n*127.1)*43758.5453;return x-Math.floor(x);};
+function px(x,y,v){ x|=0;y|=0; if(x<0||y<0||x>=W||y>=W) return; const i=y*W+x; if(buf[i]<v) buf[i]=v; }
+function disc(cx,cy,r,v){ const r2=r*r; for(let y=Math.max(0,cy-r|0);y<=Math.min(W-1,cy+r|0);y++) for(let x=Math.max(0,cx-r|0);x<=Math.min(W-1,cx+r|0);x++){ const dx=x-cx,dy=y-cy; if(dx*dx+dy*dy<=r2) px(x,y,v); } }
+function ring(cx,cy,r,w,v,wob,sd){ const n=Math.max(30,r*7); for(let j=0;j<n;j++){ const an=j/n*6.283, rr=r+wob*Math.sin(an*(5+wob)+sd*20); for(let q=-w/2;q<=w/2;q+=.7) px(cx+Math.cos(an)*(rr+q),cy+Math.sin(an)*(rr+q),v); } }
+let snarePt=null;
+function pOf(t,lk){ const tr=st.tracks[t], b=tr.p[tr.model].slice(); for(const k in lk) if(+k<8) b[+k]=lk[k]; return b.map(v=>v/127); }
+const scale=t=>.35+1.5*Math.sqrt(Math.min(1,levels[t]*1.6));
+function spawn(t,vel,lk){ if(st.mute[t]||(st.solo.some(Boolean)&&!st.solo[t])) return; const tr=st.tracks[t]; let seed=Math.random(); if(t===1&&snarePt!=null){ seed=snarePt; snarePt=null; }
+  ents.push({t,m:tr.model,p:pOf(t,lk||{}),vel:vel/127,seed,born:performance.now()/1000}); }
+function spawnPre(t,ms){ snarePt=Math.random(); const tr=st.tracks[t]; ents.push({t,pre:true,m:tr.model,p:pOf(t,{}),dur:ms/1000,seed:snarePt,born:performance.now()/1000}); }
+function lifeOf(e){ if(e.pre) return e.dur; const p=e.p;
+  switch(e.t){ case 0: return .25+p[2]*1.3; case 1: return .25+p[3]*.6; case 2: return e.m===0?.06+p[1]*1.2:.12+p[1]*2.6; case 3: return e.m===0?.15+p[2]*1.4+p[4]*1.2:.12+p[3]*1.1; default: return e.m===3?.3+p[2]*.8:.25+p[5]*1.4; } }
+const sPt=s=>[60+s*120,50+hash(s*9)*110];
+function draw(e,a,k,sc){ const p=e.p, v=Math.min(1,(1-k)*(.5+.5*(e.vel||1))*(.6+.4*sc));
+  if(e.pre){ const [cx,cy]=sPt(e.seed), kk=Math.pow(k,e.m===1?1+p[5]*4:1), n=14+p[2]*30|0, vv=.25+.75*kk;
+    for(let i=0;i<n;i++){ const an=i/n*6.283+e.seed*6, far=(40+hash(i+e.seed)*110)*(1-kk)*sc; px(cx+Math.cos(an)*far,cy+Math.sin(an)*far,vv); } return; }
+  switch(e.t){
+  case 0: if(e.m===0){ ring(120,120,(6+k*118*(.5+p[1]*.7))*sc,(2+p[3]*5+p[6]*5*(1-k))*Math.min(1.6,sc),v,p[3]*9,e.seed); if(p[4]>.02){ const rk=Math.min(1,a/(.3+p[4]*1.8)); disc(120,120,(22+p[4]*70*(1-rk*.4))*sc,.3*p[4]*(1-rk)); } if(p[5]>.05&&a<.025) disc(120,120,(3+p[5]*12)*sc,1); }
+    else { const R=(34+p[0]*30)*sc, ten=1+p[1]*1.4*Math.exp(-a*18), amp=(10+p[4]*10+p[6]*10)*v*sc, ph=a*60*ten;
+      for(let j=0;j<220;j++){ const an=j/220*6.283, d=amp*(Math.sin(ph)*.5+Math.cos(an+e.seed*6)*Math.sin(ph*1.59)*(.2+.6*p[3])*Math.exp(-a*6)+Math.cos(2*an)*Math.sin(ph*2.14)*(.1+.5*p[3])*Math.exp(-a*8)); px(120+Math.cos(an)*(R+d),120+Math.sin(an)*(R+d),v); } }
+    return;
+  case 1: { const [cx,cy]=sPt(e.seed), n=(10+p[2]*34)*Math.min(1.5,sc)|0; for(let i=0;i<n;i++){ const an=i/n*6.283+e.seed*6, sp=(60+hash(i+e.seed)*150)*(.5+p[1])*sc, x=cx+Math.cos(an)*sp*a, y=cy+Math.sin(an)*sp*a; px(x,y,v); px(x+1,y,v); px(x,y+1,v); }
+    const wn=p[2]*160*(1-k)*sc|0; for(let i=0;i<wn;i++){ const an=Math.random()*6.283, rr=Math.random()*30*(1+p[3])*sc; px(cx+Math.cos(an)*rr,cy+Math.sin(an)*rr,v*.7); } return; }
+  case 2: if(e.m===0){ const yc=22+(1-p[2])*70, h=(8+p[1]*50)*sc, n=(20+p[0]*320)*(1-k)*sc|0, sh=p[4]*40*Math.sin(a*30), len=1+p[5]*3|0; for(let i=0;i<n;i++){ const x=Math.random()*240+sh, y=yc+(Math.random()-.5)*h; for(let q=0;q<len;q++) px(x+q,y,v); } }
+    else { const base=150-p[0]*90, gap=(6+p[2]*14)*sc; for(let i=0;i<6;i++){ const amp=(i===0?1:.25+.75*p[3])*(1-i*.08), L=110*v*amp*Math.min(1.1,sc), y=base-i*gap; for(let x=120-L;x<120+L;x+=2) if(hash(x*.37+i*7+Math.floor(a*(30+p[5]*260)))<.35+.5*(1-p[5])) px(x,y,v*amp); } }
+    return;
+  case 3: if(e.m===0){ // gota: anillos de agua donde cae, uno por rebote
+      const cx=40+e.seed*160, cy=170-p[0]*80, nb=Math.floor(p[4]*9/128)+1; for(let b=0;b<nb;b++){ const tb=a-b*(.04+p[4]*.002)*Math.pow(.72,b)*3; if(tb<0) continue; ring(cx+b*6,cy,(3+tb*90*(.5+p[2]))*sc,1.5,v*Math.pow(.7,b),0,0); } }
+    else { // chatarra: bloques rotos que saltan; los bits los hacen más grandes, el caos más
+      const n=(6+p[1]*26)*Math.min(1.6,sc)|0, blk=1+p[5]*6, cx=120+(hash(e.seed*3)-.5)*80, cy=150+(hash(e.seed*5)-.5)*60;
+      for(let i=0;i<n;i++){ const w=(2+Math.random()*12*(.4+p[4]))*sc, h=1+Math.random()*3*blk, x=cx+(Math.random()-.5)*110*sc*(.4+p[1]), y=cy+(Math.random()-.5)*70*sc;
+        for(let yy=0;yy<h;yy++) for(let xx=0;xx<w;xx++) px(Math.floor((x+xx)/blk)*blk,Math.floor((y+yy)/blk)*blk,v); } }
+    return;
+  default: { const slot=e.t-4, note=e.m===3?60:midiOf(p[0]*127), cy=Math.max(20,Math.min(225,225-(note-24)*3.4)), cx=36+slot*56;
+    if(e.m===0&&TAB){ /* wavetable: el renglón de la tabla que suena */ const row=Math.max(0,Math.min(63,rows[slot]>=0?rows[slot]:Math.round(p[1]*63))), A=(10+20*sc)*v; for(let x=0;x<240;x++){ const s=TAB[row*256+((x*256/240)|0)]/30000; px(x,cy+s*A,v); } }
+    else if(e.m===1){ const A=(4+p[3]*20)*v*sc, f=1+p[1]*5; for(let x=0;x<240;x++){ const y=cy+A*Math.sin(x/240*6.283*f+a*7); px(x,y,v); px(x,y+1,v); } }
+    else if(e.m===2){ const teeth=3+p[1]*9, A=(6+p[2]*16)*v*sc; for(let x=0;x<240;x++){ const f=(x/240*teeth+a*2)%1; px(x,cy+A*(Math.pow(f,1+p[2]*3)-.5)*2,v); } }
+    else if(e.m===4){ const R=[.5,1,1.5,2,3,4,5,7,9][Math.min(8,Math.floor(p[1]*9))], A=(10+p[2]*26)*sc*v; for(let j=0;j<260;j++){ const tt=j/260*6.283; px(cx+A*Math.sin(R*tt+a*3),cy+A*Math.sin(tt+p[3]*3),v); } }
+    else if(e.m===5){ const ch=[[0,3,7,10],[0,3,10,14],[0,3,7,12],[0,4,7,12],[0,5,7,12],[0,7,12,19],[0,5,10,15],[0,3,6,9],[0,7,10,17]][Math.min(8,Math.floor(p[1]*9))];
+      ch.forEach(st=>{ const x0=20+((st*11+e.seed*40)%200), w=(4+p[2]*10)*sc; for(let x=x0;x<x0+w;x++) for(let y=cy-50*sc;y<cy+50*sc;y++) px(x,y,.45*v); }); }
+    else if(SMP){ const sl=Math.floor(p[1]*16), a0=SMP.data, slen=Math.floor(a0.length/16); for(let j=0;j<16;j++){ let pk=0; for(let i=0;i<slen/16;i+=4) pk=Math.max(pk,Math.abs(a0[sl*slen+Math.floor(j*slen/16)+i]||0)); const h=pk/32768*40*v*sc, x=cx-30+j*4; for(let y=cy-h;y<cy+h;y++){ px(x,y,v); px(x+1,y,v); } } }
+    return; } } }
+function post2(){ // performance FX en la imagen: la misma lógica que en el sonido
+  const fl=held; let src=buf;
+  hist[hp].set(buf); hp=(hp+1)%120; hn=Math.min(120,hn+1); const ago=k=>hist[(hp-1-k+240)%120];
+  const rep=fl.has('stut32')?.5:fl.has('stut16')?1:fl.has('rep8')?2:fl.has('rep4')?4:0;
+  if(rep){ if(loopId!==rep){ loopId=rep; loopN=0; const fr=Math.max(2,Math.round(rep*60/(+$('#bpm').value)/4*60)); loopSnap=[]; for(let k=fr-1;k>=0;k--) loopSnap.push(new Float32Array(ago(Math.min(k,hn-1)))); } o2.set(loopSnap[loopN++%loopSnap.length]); src=o2; } else loopId=null;
+  if(fl.has('rev')){ o2.set(ago(Math.min(hn-1,(loopN++%60)*2))); src=o2; }
+  if(src===buf){ o2.set(buf); src=o2; }
+  if(fl.has('lp')){ tmp.set(src); for(let y=1;y<W-1;y++) for(let x=1;x<W-1;x++){ const i=y*W+x; src[i]=(tmp[i]*2+tmp[i-1]+tmp[i+1]+tmp[i-W]+tmp[i+W])/6*.8; } }
+  if(fl.has('hp')){ tmp.set(src); for(let y=0;y<W;y++) for(let x=2;x<W;x++){ const i=y*W+x; src[i]=Math.min(1,Math.abs(tmp[i]-tmp[i-2])*2.5); } }
+  if(fl.has('bits')){ for(let y=0;y<W;y+=8) for(let x=0;x<W;x+=8){ const v=src[y*W+x]; for(let yy=y;yy<y+8;yy++) for(let xx=x;xx<x+8;xx++) src[yy*W+xx]=v; } }
+  if(fl.has('eco')){ tmp.set(src); for(let y=0;y<W;y++) for(let x=16;x<W;x++){ const i=y*W+x, v=tmp[i-16]*.55; if(src[i]<v) src[i]=v; } }
+  if(fl.has('gate')&&((performance.now()/1000*(+$('#bpm').value)/60*4)%1)>.5) src.fill(0);
+  if(fl.has('riser')) for(let i=0;i<600;i++){ const y=240-Math.pow(Math.random(),.6)*240; src[(y|0)*W+((Math.random()*240)|0)]=.4+Math.random()*.6; }
+  return src; }
+let last=performance.now()/1000, brk=1, view='vis', ov=null;
+$('#v-vis').onclick=()=>{ view='vis'; $('#v-vis').classList.add('on'); $('#v-mix').classList.remove('on'); };
+$('#v-mix').onclick=()=>{ view='mix'; $('#v-mix').classList.add('on'); $('#v-vis').classList.remove('on'); };
+function showOv(label,value){ ov={label,value,until:performance.now()+1300}; }
+/* La mezcladora en 240x240: una columna por pista. El contorno punteado es el volumen; el relleno, lo que suena
+   ahora; arriba, el paneo (una marca) y el delay (puntos); el halo es la reverb. Muteada se hunde a una línea;
+   en solo, las demás se apagan. Abajo, el número de la pista (1–8, como las teclas negras). Los valores solo aparecen al tocar algo. */
+const DIG={1:['010','110','010','010','111'],2:['111','001','111','100','111'],3:['111','001','111','001','111'],4:['101','101','111','001','001'],5:['111','100','111','001','111'],6:['111','100','111','101','111'],7:['111','001','010','010','010'],8:['111','101','111','101','111']};
+function digit(d,cx,cy,v){ DIG[d].forEach((row,y)=>{ for(let x=0;x<3;x++) if(row[x]==='1') for(let a=0;a<2;a++) for(let b=0;b<2;b++) px(cx-3+x*2+a,cy+y*2+b,v); }); }
+function glyph(t,cx,cy,v){ const m=st.tracks[t].model;
+  if(t===0){ for(let j=0;j<24;j++){ const an=j/24*6.283; px(cx+Math.cos(an)*5,cy+Math.sin(an)*5,v); } return; }
+  if(t===1){ for(let r=-5;r<=5;r++){ px(cx+r,cy,v); px(cx,cy+r,v); px(cx+r*.7,cy+r*.7,v); px(cx+r*.7,cy-r*.7,v); } return; }
+  if(t===2){ for(let i=-6;i<=6;i+=2) for(let j=-2;j<=2;j+=2) px(cx+i,cy+j,v); return; }
+  if(t===3){ if(m===0){ for(let j=0;j<20;j++){ const an=j/20*6.283; px(cx+Math.cos(an)*3,cy+2+Math.sin(an)*3,v); } for(let y=-5;y<0;y++) px(cx,cy+y,v); } else { for(let i=-5;i<=5;i++){ px(cx+i,cy+i,v); px(cx+i,cy-i,v); px(cx-5,cy+i,v); px(cx+5,cy+i,v); } } return; }
+  for(let x=-7;x<=7;x++){ let y=0; if(m===0) y=Math.sin(x*.9)*3; else if(m===1) y=Math.sin(x*.5)*4; else if(m===2) y=((x+7)%5)-2; else if(m===3) y=(x%2?3:-3)*((x+7)%3===0); else if(m===4) y=Math.sin(x*1.4)*Math.cos(x*.3)*4; else y=(hash(x)-.5)*7; px(cx+x,cy+y,v); }
+}
+function renderMixer(){
+  buf.fill(0); const anySolo=st.solo.some(Boolean);
+  for(let t=0;t<8;t++){ const x0=5+t*29.4, w=23, cx=x0+w/2, [vol,pan,dly,rev]=st.mix[t];
+    const off=st.mute[t]||(anySolo&&!st.solo[t]), dim=off?.35:1;
+    const fh=Math.round(vol/127*160), top=196-fh;
+    if(st.mute[t]){ for(let x=x0;x<x0+w;x++){ px(x,195,.6); px(x,196,.6); } }
+    else {
+      if(rev>0){ const g=Math.round(rev/127*5); for(let y=top-g;y<=196;y++) for(let x=x0-g;x<x0+w+g;x++) px(x,y,.16*dim); }
+      for(let y=top;y<=196;y+=2){ px(x0,y,.55*dim); px(x0+w-1,y,.55*dim); }
+      for(let x=x0;x<x0+w;x+=2) px(x,top,.55*dim);
+      const lh=Math.min(fh,Math.round(Math.sqrt(levels[t])*170));
+      for(let y=196-lh;y<=196;y++) for(let x=x0+3;x<x0+w-3;x++) px(x,y,(st.solo[t]?1:.85)*dim);
+      const pxm=cx+(pan-64)/64*9; for(let y=20;y<25;y++){ px(pxm,y,dim); px(pxm+1,y,dim); }
+      const nd=Math.round(dly/127*5); for(let d=0;d<nd;d++){ px(x0+2+d*4,12,dim); px(x0+3+d*4,12,dim); px(x0+2+d*4,13,dim); px(x0+3+d*4,13,dim); }
+    }
+    digit(t+1,cx,205,off?.4:1);
+    if(t===st.tab) for(let x=x0;x<x0+w;x++){ px(x,230,1); px(x,231,1); }
+  }
+}
+function frame(){
+  if(held.has('brake')) brk=Math.max(0,brk-.012); else brk=1;
+  const now=performance.now()/1000, slow=(held.has('half')?.5:1)*brk; last=now;
+  const decay=held.has('freeze')?1:Math.pow(.86,slow); for(let i=0;i<buf.length;i++) buf[i]*=decay;
+  for(let i=ents.length-1;i>=0;i--){ const e=ents[i], a=(now-e.born)*slow, L=lifeOf(e); if(a>L){ ents.splice(i,1); continue; } if(view==='vis') draw(e,a,a/L,scale(e.t)); }
+  if(view==='mix') renderMixer();
+  const src=view==='mix'?buf:post2(), d=img.data;
+  for(let y=0;y<W;y++) for(let x=0;x<W;x++){ const i=y*W+x,o=i*4,c=src[i]>BAY[(y&3)*4+(x&3)]?FG:BG; d[o]=c[0];d[o+1]=c[1];d[o+2]=c[2];d[o+3]=255; }
+  ctx.putImageData(img,0,0);
+  if(ov&&performance.now()<ov.until){ const al=Math.min(1,(ov.until-performance.now())/400); ctx.globalAlpha=al; ctx.fillStyle='rgba(11,11,10,.86)'; ctx.fillRect(0,168,240,72); ctx.fillStyle='rgb(242,238,228)';
+    ctx.font='800 9px Manrope, sans-serif'; ctx.fillText(ov.label,10,186); ctx.font='200 34px Manrope, sans-serif'; ctx.fillText(ov.value,9,222); ctx.globalAlpha=1; }
+  else if(pick!=null){ ctx.fillStyle='rgba(11,11,10,.85)'; ctx.fillRect(0,214,240,26); ctx.fillStyle='rgb(242,238,228)'; ctx.font='800 9px Manrope, sans-serif'; ctx.fillText('LOCK · '+TR[st.tab].name+' · PASO '+(pick+1),8,231); }
+  if(rec){ ctx.fillStyle='rgb(214,64,46)'; ctx.beginPath(); ctx.arc(226,14,5,0,6.283); ctx.fill(); }
+  requestAnimationFrame(frame);
+}
+buildKnobs(); drawTrackSel(); drawPanel(); drawGrid(); drawMixer(); drawFx(); drawSaved(); drawNotes(); requestAnimationFrame(frame);
+})();
+</script>
