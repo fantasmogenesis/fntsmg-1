@@ -127,7 +127,7 @@ void fg_mix_render(fg_mix_t *m, int32_t *const in[FG_TRACKS], int32_t *outl, int
         unsigned wid = s->v[FGX_WIDTH], wdel = 20u + wid * 7u / 4u;   /* ANCHO: 0.5 .. 5.5 ms al otro lado */
         int32_t wg = (int32_t)wid * 200;
         unsigned filt = s->v[FGX_FILT] != 64u && s->ff, sat = s->v[FGX_SAT];
-        int32_t drive = 4096 + (int32_t)sat * 150, dk = (int32_t)s->v[FGX_DUCK] * 195;   /* AGACHE 64 = los ~4 dB de siempre */
+        int32_t drive = 4096 + (int32_t)sat * 150, dk = (int32_t)s->v[FGX_DUCK] * 195;   /* SIDECHAIN 64 = los ~4 dB de siempre */
         int32_t *x = in[t];
         unsigned mfull = mg == 32767 && mtarget == 32767;   /* sonando: la pista pasa intacta */
         for (unsigned i = 0; i < n; i++) {

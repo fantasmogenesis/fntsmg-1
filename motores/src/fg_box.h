@@ -59,7 +59,7 @@ typedef struct {
     uint16_t has_edited[8];
     uint8_t crow[16], crep[16], chain_on;   /* CADENA: patrón de cada fila (255 = vacía), veces, si suena */
     uint8_t mclk_in, mclk_out, mnotes;      /* MIDI: reloj entra / sale; notas 0 no, 1 entran, 2 salen, 3 las dos */
-    uint8_t mix2[8][4];                     /* ENV pág. 2: FILTRO (64 abierto: abajo graves, arriba agudos), RESO, SATURA, AGACHE */
+    uint8_t mix2[8][4];                     /* ENV pág. 2: FILTRO (64 abierto: abajo graves, arriba agudos), RESO, SATURA, SIDECHAIN */
     uint8_t scl2[8][4];                     /* SCL pág. 2: (MOVER no se guarda), TRANSPONER (64 = 0), HUMANO, DENSIDAD */
     uint8_t lfo2[8][4];                     /* LFO pág. 2: el segundo LFO (destino, velocidad, profundidad, forma) */
     uint8_t arp[8][4], arp_on;              /* ARP: modo, velocidad, octavas, sostener; bit t: prendido */

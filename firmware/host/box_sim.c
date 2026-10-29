@@ -157,6 +157,7 @@ int main(int argc, char **argv)
     tap(FB_HOME); run(50); tap(FB_HOME); run(50);                     /* (sale de la vista CADENA si entró) */
     black(5, 1); black(5, 0);                                         /* sinte B */
     tap(FB_ENV); tap(FB_ENV); run(50); enc(FE_K1, -6); shot("env-pag2-filtro"); printf("ENV pág 2: %s = %s\n", B.ov.label, B.ov.value);
+    enc(FE_K4, 4); shot("env-pag2-sidechain"); printf("ENV pág 2: %s = %s\n", B.ov.label, B.ov.value);
     tap(FB_SCL); tap(FB_SCL); run(50); enc(FE_K1, 1); printf("SCL pág 2 K1: %s = %s\n", B.ov.label, B.ov.value); enc(FE_K2, 4); printf("SCL pág 2 K2: %s = %s\n", B.ov.label, B.ov.value);
     tap(FB_LFO); tap(FB_LFO); run(50); enc(FE_K3, 6); shot("lfo-pag2"); printf("LFO pág 2: %s = %s\n", B.ov.label, B.ov.value);
     btn(FB_ENV, 1); run(1100); printf("ENV 1 s: %s = %s (filtro %d)\n", B.ov.label, B.ov.value, B.s.mix2[5][0]); btn(FB_ENV, 0); run(50);

@@ -669,7 +669,7 @@ static void song_defaults(fg_box_t *b)
     for (unsigned r = 0; r < 16; r++) { s->crow[r] = 255; s->crep[r] = 1; }
     s->mclk_in = 1; s->mclk_out = 1;
     for (unsigned t = 0; t < 8; t++) {
-        s->mix2[t][0] = 64; s->mix2[t][3] = t ? 64 : 0;  /* FILTRO abierto; AGACHE: lo de siempre (el bombo no se agacha solo) */
+        s->mix2[t][0] = 64; s->mix2[t][3] = t ? 64 : 0;  /* FILTRO abierto; SIDECHAIN: lo de siempre (el bombo no se baja solo) */
         s->scl2[t][1] = 64; s->scl2[t][3] = 127;          /* sin transponer; DENSIDAD: todos los pasos */
         s->lfo2[t][1] = 40;
         s->arp[t][1] = 1;                                  /* 1/16 */
@@ -758,7 +758,7 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
         g->kind = nhs ? TK_PLOCK : TK_PARAM;
         return 1; }
     case PG_ENV:
-        if (b->pn) { static const char *const L[4] = {"FILTRO", "ANCHO", "SATURA", "AGACHE"}; g->idx = (uint8_t)(4 + k); g->label = L[k]; g->kind = TK_MIX; return 1; }
+        if (b->pn) { static const char *const L[4] = {"FILTRO", "ANCHO", "SATURA", "SIDECHAIN"}; g->idx = (uint8_t)(4 + k); g->label = L[k]; g->kind = TK_MIX; return 1; }
         g->idx = (uint8_t)k; g->label = MIXL[k]; g->kind = nhs ? TK_MLOCK : TK_MIX; return 1;
     case PG_FX: g->idx = FXPAGE[b->pn & 1u][k]; g->label = FXL[g->idx]; g->kind = TK_FX; return 1;
     case PG_SCL: {
@@ -1345,7 +1345,7 @@ static void clear_pattern(fg_box_t *b)
 static void reset_mix(fg_box_t *b)
 {
     unsigned t = b->sel;
-    static const uint8_t M2[4] = {64, 0, 0, 64};               /* FILTRO abierto, sin ANCHO ni SATURA, AGACHE de siempre */
+    static const uint8_t M2[4] = {64, 0, 0, 64};               /* FILTRO abierto, sin ANCHO ni SATURA, SIDECHAIN de siempre */
     for (unsigned i = 0; i < 4; i++) { b->s.mix[t][i] = MIX0[t][i]; post(b, M_MIX, t, i, 0, MIX0[t][i]); }
     for (unsigned i = 0; i < 4; i++) { b->s.mix2[t][i] = t == 0 && i == 3 ? 0 : M2[i]; post(b, M_MIX, t, 4 + i, 0, b->s.mix2[t][i]); }
     show_ov(b, TN[t], "MEZCLA INICIAL", 256); mark(b);
