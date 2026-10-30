@@ -2,7 +2,7 @@
 
 Contrato entre el firmware FNTSMG-1 y la app companion (`estacion/`). La app solo habla con el aparato por lo que dice este documento. Si necesita algo que aquí no está, se pide un cambio a este documento antes de programarlo.
 
-- **Versión del protocolo:** 1, revisión 4 (30-oct-2026). Es la que implementa el firmware; los cambios contra la revisión 1 están en el Historial, al final.
+- **Versión del protocolo:** 1, revisión 5 (30-oct-2026). Es la que implementa el firmware; los cambios contra la revisión 1 están en el Historial, al final.
 - **Firmware que lo implementa:** 0.9, en la rama `v0.9` (sin instalar todavía). El 0.8.7 de la beta solo tiene el espejo (sección 9).
 - **Dueño:** la sesión del firmware (`motores/src/fg_box.c`, `vendor/Felucca/firmware/src/fgbox.c`). La sesión de la companion no toca firmware.
 - **Cuándo cambia el número de versión:** un comando nuevo no lo cambia, porque la app lo descubre con `INFO`. Cambiar el significado de un comando que ya existe sí lo sube.
@@ -156,7 +156,9 @@ Respuesta: sin datos.
 
 ### 0x12 CAMBIO (aviso)
 
-El aparato lo manda cuando algo cambió por su lado: la persona movió una perilla, editó pasos, cargó un proyecto o deshizo. Lo manda como mucho una vez cada 100 ms, y junta en uno los cambios de ese rato.
+El aparato lo manda cuando algo cambió por su lado: la persona movió una perilla, editó pasos, cargó un proyecto o deshizo.
+
+Tiene la misma forma que una respuesta: `F0 7D 46 47 12 00 00 datos… F7`, es decir, `id = 0` y el byte de estado (siempre 0) antes de los campos de la tabla. Lo manda como mucho una vez cada 100 ms, y junta en uno los cambios de ese rato.
 
 | Campo | Tipo | Qué es |
 |---|---|---|
@@ -690,6 +692,7 @@ Con ranuras de 8 KB caben unos 5 500 bytes de pasos por encima del proyecto vac�
   - Traslados: comparten memoria con el guardado del aparato (el autoguardado espera; guardar o abrir en el aparato cancela el traslado).
   - TUYOS: sectores seguidos, `NO_CABE` con el hueco seguido más grande, revisión del formato al abrir, índice como registro.
   - Mapa de la flash decidido (sección 10) y la mudanza desde 0.8.
+- 1, revisión 5 (30-oct-2026): el aviso `CAMBIO` trae el byte de estado (0) después del `id` 0, igual que una respuesta. El firmware siempre lo mandó así; el documento no lo decía.
 - 1, revisión 4 (30-oct-2026), a pedido de Cris: en SAMPLE, la perilla PRESET también recorre los samples. Cada uno es el sonido de ahora con ese sample en la perilla SAMPLE. `META` 4 los lista después de los de fábrica; `PERILLA` perilla 5 los elige por su número en esa lista.
 - 1, revisión 3 (29-oct-2026), a pedido de la companion:
   - `ESTADO` del espejo suma al final el paso de cada pista y el byte «tocando».
