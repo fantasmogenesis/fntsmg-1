@@ -125,7 +125,8 @@ static void hint(const fg_box_t *b, unsigned id)
     case FB_GLO: what = "MANTÉN = SWING Y ESCALA"; break;
     case FB_ARP:
         if (b->sel < 4) { what = "ARPEGIADOR: SOLO SINTES"; break; }
-        what = b->s.arp[b->sel][3] ? "MANTÉN = ARP SUELTO" : "MANTÉN = ARP SOSTENIDO";
+        if ((b->s.arp_on >> b->sel) & 1u) what = b->s.arp[b->sel][3] ? "MANTÉN = ARP SUELTO" : "MANTÉN = ARP SOSTENIDO";
+        else what = b->s.arp[b->sel][3] ? "MANTÉN = NOTAS SUELTAS" : "MANTÉN = NOTAS SOSTENIDAS";
         L1 = "1 MODO     2 VELOCIDAD"; L2 = "3 OCTAVAS     4 SOSTENER"; break;
     }
     int h = L1 ? 82 : 46, y = 240 - h + 22, w = (int)(b->now - b->press_ms[id] - 300u) * 216 / 700;

@@ -745,6 +745,7 @@ static unsigned held_steps(fg_box_t *b, uint8_t *out)
 static int rel_param(const fg_box_t *b, unsigned t, unsigned i) { (void)b; return is_synth(t) && i == 0; }
 
 static int tget(fg_box_t *b, const tgt_t *g);
+static void hold_release(fg_box_t *b, unsigned t);
 static int target(fg_box_t *b, unsigned k, tgt_t *g)
 {
     unsigned t = b->sel;
@@ -770,7 +771,7 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
         }
     }
     if (held(b, FB_ARP)) {                               /* ARP sostenido sin pasos: el arpegiador de la pista */
-        static const char *const L[4] = {"ARP MODO", "ARP VELOCIDAD", "ARP OCTAVAS", "ARP SOSTENER"};
+        static const char *const L[4] = {"ARP MODO", "ARP VELOCIDAD", "ARP OCTAVAS", "SOSTENER"};
         static const int16_t MA[4] = {4, 5, 2, 1};
         static const uint16_t ST[4] = {96, 96, 96, 64};
         if (!is_synth(t)) return 0;
@@ -899,7 +900,7 @@ static void tset(fg_box_t *b, const tgt_t *g, int v)
         if (g->idx == 0) { move_steps(b, v); break; }
         b->s.scl2[t][g->idx] = (uint8_t)v; post(b, M_SCL2, t, g->idx, 0, v); break;
     case TK_LFO2: b->s.lfo2[t][g->idx] = (uint8_t)v; send_lfo2(b, t); break;
-    case TK_ARPC: b->s.arp[t][g->idx] = (uint8_t)v; send_arp(b, t); break;
+    case TK_ARPC: b->s.arp[t][g->idx] = (uint8_t)v; if (g->idx == 3 && !v) hold_release(b, t); send_arp(b, t); break;
     case TK_PERFK: {
         unsigned e = b->perf_last, bit = 0;
         if (e >= 16u) break;
@@ -1512,14 +1513,25 @@ static void reset_glo(fg_box_t *b)
     b->s.scale = 1;
     show_ov(b, "SWING, RAÍZ Y ESCALA", "COMO AL EMPEZAR", 256); mark(b);
 }
-static void arp_hold(fg_box_t *b)                           /* ARP 1 s: SOSTENER (al soltar las teclas el arpegio sigue); lo prende si estaba apagado */
+/* SOSTENER sin ARP: lo que se soltó deja de sonar (otra nota, o SOSTENER apagado) */
+static void hold_release(fg_box_t *b, unsigned t)
+{
+    if (!is_synth(t)) return;
+    for (unsigned j = 0; j < 16u; j++) if (b->hold_k[t - 4] >> j & 1u) post(b, M_NOTEOFF, t, 128u + j, 0, 0);
+    b->hold_k[t - 4] = 0;
+}
+/* ARP 1 s: SOSTENER. Con ARP, al soltar las teclas el arpegio sigue; sin ARP, las notas siguen sonando hasta tocar otra
+ * (un pad). Lo que se graba con REC entra al soltar nada: el paso suena hasta el siguiente golpe de la pista */
+static void arp_hold(fg_box_t *b)
 {
     unsigned t = b->sel;
     if (!is_synth(t)) { show_ov(b, "ARPEGIADOR", "SOLO SINTES", 0); return; }
     b->s.arp[t][3] = (uint8_t)!b->s.arp[t][3];
-    if (b->s.arp[t][3]) { b->s.arp_on |= (uint8_t)(1u << t); if (b->seqmode) { b->seqmode = 0; b->oct = 0; } }
+    if (!b->s.arp[t][3]) hold_release(b, t);
+    if (b->seqmode) { b->seqmode = 0; b->oct = 0; }
     send_arp(b, t);
-    show_ov(b, TN[t], b->s.arp[t][3] ? "ARP SOSTENIDO" : "ARP SUELTO", b->s.arp[t][3] ? 256 : 0); mark(b);
+    int arp = (b->s.arp_on >> t) & 1u;
+    show_ov(b, TN[t], b->s.arp[t][3] ? (arp ? "ARP SOSTENIDO" : "NOTAS SOSTENIDAS") : (arp ? "ARP SUELTO" : "NOTAS SUELTAS"), b->s.arp[t][3] ? 256 : 0); mark(b);
 }
 /* SCL pág. 2, MOVER: los pasos de la pista corridos uno (con todo lo que traen), dentro de su largo */
 static void move_steps(fg_box_t *b, int d)
@@ -1835,6 +1847,11 @@ static void play_note(fg_box_t *b, unsigned i)
     } else lk = (int)(i * 8u + 4u);
     b->kt[i] = (uint8_t)t;
     if (is_synth(t) && ((b->s.arp_on >> t) & 1u)) { post(b, M_ARPKEY, t, 128u + i, (unsigned)lk, 1); return; }   /* al arpegiador */
+    if (is_synth(t) && b->s.arp[t][3] && b->hold_k[t - 4]) {   /* SOSTENER: una nota nueva (sin otra sostenida a mano) suelta las de antes */
+        int other = 0;
+        for (unsigned j = 0; j < 16u; j++) if (j != i && (b->wdown >> j & 1u) && b->kt[j] == t) other = 1;
+        if (!other) hold_release(b, t);
+    }
     post(b, M_TRIG, t, 110, (unsigned)lk, is_synth(t) ? (int32_t)(0x100u | (128u + i)) : 0);   /* el sinte suena mientras se sostiene */
     if (b->rec) {
         fg_track_t *tr = TRK(b);
@@ -1948,7 +1965,9 @@ static void white_release(fg_box_t *b, unsigned i)
         return;
     }
     if (!b->seqmode) {
-        if (is_synth(b->kt[i])) post(b, (b->s.arp_on >> b->kt[i]) & 1u ? M_ARPKEY : M_NOTEOFF, b->kt[i], 128u + i, 0, 0);
+        unsigned t = b->kt[i];
+        if (is_synth(t) && !((b->s.arp_on >> t) & 1u) && b->s.arp[t][3]) b->hold_k[t - 4] |= (uint16_t)(1u << i);   /* SOSTENER: sigue sonando */
+        else if (is_synth(t)) post(b, (b->s.arp_on >> t) & 1u ? M_ARPKEY : M_NOTEOFF, t, 128u + i, 0, 0);
         b->used_w &= (uint16_t)~(1u << i);
         return;
     }

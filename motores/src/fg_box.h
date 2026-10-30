@@ -137,6 +137,7 @@ typedef struct fg_box {
     uint8_t slot_arm;                       /* SAVE + blanca sostenida en una ranura llena: 1 + ranura (0 = nada) */
     uint32_t slot_ms;
     uint16_t perf, latch;                   /* FX de performance (por blanca) */
+    uint16_t hold_k[4];                     /* SOSTENER sin ARP: las blancas que se soltaron y siguen sonando, por sinte */
     uint8_t perf_last, pk[16][2];           /* el último efecto tocado y las perillas de cada uno (K1, K2; 64 = como siempre) */
     uint16_t kmov[4];                       /* cuánto se acaban de mover K1..K4 (0..256): el visual lo siente */
     uint8_t home_list[16], nhome;

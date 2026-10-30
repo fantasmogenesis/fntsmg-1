@@ -2,7 +2,7 @@
 
 Contrato entre el firmware FNTSMG-1 y la app companion (`estacion/`). La app solo habla con el aparato por lo que dice este documento. Si necesita algo que aquí no está, se pide un cambio a este documento antes de programarlo.
 
-- **Versión del protocolo:** 1, revisión 5 (30-oct-2026). Es la que implementa el firmware; los cambios contra la revisión 1 están en el Historial, al final.
+- **Versión del protocolo:** 1, revisión 6 (30-oct-2026). Es la que implementa el firmware; los cambios contra la revisión 1 están en el Historial, al final.
 - **Firmware que lo implementa:** 0.9, en la rama `v0.9` (sin instalar todavía). El 0.8.7 de la beta solo tiene el espejo (sección 9).
 - **Dueño:** la sesión del firmware (`motores/src/fg_box.c`, `vendor/Felucca/firmware/src/fgbox.c`). La sesión de la companion no toca firmware.
 - **Cuándo cambia el número de versión:** un comando nuevo no lo cambia, porque la app lo descubre con `INFO`. Cambiar el significado de un comando que ya existe sí lo sube.
@@ -321,6 +321,8 @@ Qué hay en cada página: lo da `META` tipo 2. Hoy:
 | GLO (global) | TEMPO, SWING, RAÍZ, ESCALA | MUTES, RELOJ, IDIOMA, NOTAS Y CC (0.9) |
 | CADENA | PATRÓN, VECES, (nada), CADENA | |
 | ARP (sintes) | MODO, VELOCIDAD, OCTAVAS, SOSTENER | |
+
+SOSTENER (página 7, perilla 3, 0 o 1, por pista) vale también con el arpegiador apagado: las notas que se sueltan siguen sonando hasta que se toca otra nota o acorde (un pad), y apagarlo las calla. Es el HOLD de la app. Lo grabado con REC suena hasta el siguiente golpe de la pista, así que una nota sostenida se graba igual.
 
 Notas:
 
@@ -692,6 +694,7 @@ Con ranuras de 8 KB caben unos 5 500 bytes de pasos por encima del proyecto vac�
   - Traslados: comparten memoria con el guardado del aparato (el autoguardado espera; guardar o abrir en el aparato cancela el traslado).
   - TUYOS: sectores seguidos, `NO_CABE` con el hueco seguido más grande, revisión del formato al abrir, índice como registro.
   - Mapa de la flash decidido (sección 10) y la mudanza desde 0.8.
+- 1, revisión 6 (30-oct-2026), a pedido de Cris: SOSTENER sostiene notas también sin arpegiador (el HOLD). No hay comando nuevo: es `PERILLA` página 7 perilla 3, y avisa con `CAMBIO` bit 0.
 - 1, revisión 5 (30-oct-2026): el aviso `CAMBIO` trae el byte de estado (0) después del `id` 0, igual que una respuesta. El firmware siempre lo mandó así; el documento no lo decía.
 - 1, revisión 4 (30-oct-2026), a pedido de Cris: en SAMPLE, la perilla PRESET también recorre los samples. Cada uno es el sonido de ahora con ese sample en la perilla SAMPLE. `META` 4 los lista después de los de fábrica; `PERILLA` perilla 5 los elige por su número en esa lista.
 - 1, revisión 3 (29-oct-2026), a pedido de la companion:
