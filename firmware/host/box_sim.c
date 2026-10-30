@@ -5,11 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fg_box.h"
+#include "fg_lang.h"
 
 static fg_box_t B;
 static uint8_t VMEM[100000];
-static uint8_t SLOT[FBX_UBANK_SLOT + 1][16384];
-static uint32_t SLOTN[FBX_UBANK_SLOT + 1];
+static uint8_t SLOT[FBX_UBANK_SLOT + 2][16384];
+static uint32_t SLOTN[FBX_UBANK_SLOT + 2];
 static FILE *wav;
 static uint32_t frames, now_ms;
 static double audio_acc;
@@ -298,6 +299,26 @@ int main(int argc, char **argv)
       for (int s = 0; s < tr->len; s++) { if (tr->st[s].v) nv++; printf(" %d", tr->st[s].v ? tr->st[s].lk[0] : 0); } printf("  -> %d pasos\n", nv); }
     tap(FB_PLAY); run(100);
     tap(FB_PLAY); run(500);
+    /* 0.9: SAMPLE en la caja, la perilla SAMPLE y la página 2 de GLO (RELOJ, IDIOMA), en los tres idiomas */
+    while (B.sel != 1) enc(FE_SELECT, 1);
+    if (B.seqmode) tap(FB_SEQ);
+    while (B.s.model[1] != 2) enc(FE_ALGO, 1);
+    run(1500); shot("sample-motor");
+    tap(FB_EDIT); run(1500); enc(FE_K2, 2); shot("sample-perilla");
+    enc(FE_K1, 3); shot("sample-afina");
+    for (int lg = 0; lg < 3; lg++) {
+        static const char *const LN[3] = {"es", "en", "pt"};
+        char nm[32];
+        fg_lang = (uint8_t)lg;
+        tap(FB_GLO); if (B.pn == 0) tap(FB_GLO); run(1500); enc(FE_K2, 1); snprintf(nm, sizeof nm, "%s-glo-reloj", LN[lg]); shot(nm);
+        enc(FE_K3, 0); snprintf(nm, sizeof nm, "%s-glo-nombres", LN[lg]); tap(FB_GLO); tap(FB_GLO); run(100); shot(nm);
+        tap(FB_EDIT); run(1500); enc(FE_K2, 1); snprintf(nm, sizeof nm, "%s-sample", LN[lg]); shot(nm);
+        btn(FB_SAVE, 1); run(400); snprintf(nm, sizeof nm, "%s-ayuda-save", LN[lg]); shot(nm); btn(FB_SAVE, 0); run(1500);
+        btn(FB_EDIT, 1); run(600); snprintf(nm, sizeof nm, "%s-ayuda-edit", LN[lg]); shot(nm); btn(FB_EDIT, 0); run(1500);
+        tap(FB_ENV); run(100); snprintf(nm, sizeof nm, "%s-mezcla", LN[lg]); shot(nm); tap(FB_EDIT); run(1500);
+        black(10, 1); run(100); snprintf(nm, sizeof nm, "%s-copia", LN[lg]); shot(nm); black(10, 0); run(1500);
+    }
+    fg_lang = 0;
     wav_hdr(frames); fclose(wav);
     printf("sizeof(fg_box_t) = %zu, vis = %u\n", sizeof(fg_box_t), fg_vis_size(240, 240, 4));
     return 0;

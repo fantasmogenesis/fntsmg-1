@@ -9,6 +9,7 @@ static const uint8_t DEF[FGY_MODELS][FGY_NP] = {
     {40, 50, 30, 40, 60, 60, 30, 95},     /* dron */
     {45, 0, 60, 50, 70, 40, 40, 95},      /* dub */
     {52, 40, 80, 30, 70, 20, 30, 95},     /* resonador */
+    {76, 48, 0, 127, 64, 0, 0, 64},       /* sample: la primera textura, en su nota */
 };
 static int32_t sq2(unsigned v) { return (int32_t)(v * v * 2u); }
 
@@ -424,6 +425,17 @@ static void reson_render(fgy_voice_t *v, int32_t *out, int32_t lvl, unsigned n)
 }
 
 /* ------------------------------------------------------------ pista --- */
+/* ----------------------------------------------------------- sample --- */
+/* fg_samp.c: aquí solo la nota sostenida (LAZO suelta al soltar) y el apagado rápido de fg_synth_limit */
+static void sample_render(fgy_voice_t *v, int32_t *out, unsigned n)
+{
+    if (v->gate != FGY_HOLD) v->gate = v->gate > n ? v->gate - n : 0;
+    if (!v->gate && !v->rel) { v->rel = 1; fg_sampv_release(&v->smp); }
+    if (v->rel && v->kr == FG_DECAY[2]) v->smp.kill = FG_DECAY[2];
+    fg_sampv_render(&v->smp, out, n);
+    v->on = v->smp.on;
+}
+
 void fg_synth_init(fg_synth_t *s, const fg_synth_shared_t *sh, unsigned model)
 {
     fg_zero(s, sizeof *s);
@@ -462,6 +474,7 @@ void fg_synth_trig(fg_synth_t *s, unsigned vel, const uint8_t *ov, unsigned mask
         k = s->cur;
     } else {                                                     /* poli: una voz libre o la más vieja */
         unsigned lim = s->maxv && s->maxv < FGY_VOICES ? s->maxv : FGY_VOICES;
+        if (s->model == FGY_SAMPLE && lim > 2u) lim = 2u;
         for (k = 0; k < lim && s->v[k].on; k++) { }
         if (k == lim) { k = 0; for (unsigned j = 1; j < lim; j++) if (s->v[j].age < s->v[k].age) k = j; }
     }
@@ -492,6 +505,7 @@ void fg_synth_trig(fg_synth_t *s, unsigned vel, const uint8_t *ov, unsigned mask
     case FGY_DRON: dron_trig(v, vel); break;
     case FGY_DUB: dub_trig(v, vel); break;
     case FGY_RESONADOR: reson_trig(v, vel); break;
+    case FGY_SAMPLE: fg_sampv_trig(&v->smp, v->p, vel, 1, v->note_q8); v->on = v->smp.on; break;
     default: break;
     }
 }
@@ -572,6 +586,7 @@ void fg_synth_render(fg_synth_t *s, int32_t *out, unsigned n)
         case FGY_DRON: dron_render(v, tmp, lvl, n); break;
         case FGY_DUB: dub_render(v, tmp, lvl, n); break;
         case FGY_RESONADOR: reson_render(v, tmp, lvl, n); break;
+        case FGY_SAMPLE: sample_render(v, tmp, n); break;
         default: v->on = 0; break;
         }
     }

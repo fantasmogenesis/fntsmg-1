@@ -6,8 +6,9 @@
 #pragma once
 #include <stdint.h>
 #include "fg_dsp.h"
+#include "fg_samp.h"
 
-enum { FGM_GRANIZO, FGM_PLACA, FGM_MODELS };
+enum { FGM_GRANIZO, FGM_PLACA, FGM_SAMPLE, FGM_MODELS };   /* SAMPLE: fg_samp.h */
 #define FGM_NP 8
 #define FGM_MODES 6
 
@@ -37,6 +38,7 @@ typedef struct {
     uint8_t p[FGM_MODELS][FGM_NP];
     fgm_hail_t h[2];
     fgm_plate_t pl[2];
+    fg_sampv_t sm[2];
     int32_t peak;
 } fg_metal_t;
 

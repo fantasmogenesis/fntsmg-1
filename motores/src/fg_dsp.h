@@ -9,6 +9,12 @@
 #define FG_BLOCK 128                     /* muestras por bloque, como el I2S del FM-1 */
 
 /* sin libc: el firmware no la tiene */
+/* en el FM-1, lo grande que no hace falta en cero al arrancar va a la RAM grande (.pool, sin limpiar): .bss está casi llena */
+#ifdef FG_DEVICE
+#define FG_POOL __attribute__((section(".pool")))
+#else
+#define FG_POOL
+#endif
 static inline void fg_zero(void *p, unsigned bytes) { uint8_t *b = (uint8_t *)p; while (bytes--) *b++ = 0; }
 static inline void fg_copy(void *d, const void *s, unsigned bytes)
 {

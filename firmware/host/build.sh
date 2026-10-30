@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")"
 M=../../motores/src
-S="$M/fg_box.c $M/fg_box_draw.c $M/fg_font.c $M/fg_tables.c $M/fg_smp.c $M/fg_samples.c $M/fg_kick.c $M/fg_snare.c $M/fg_metal.c $M/fg_perc.c $M/fg_synth.c $M/fg_mix.c $M/fg_seq.c $M/fg_vis.c"
+S="$M/fg_box.c $M/fg_box_draw.c $M/fg_font.c $M/fg_tables.c $M/fg_smp.c $M/fg_samp.c $M/fg_usr.c $M/fg_lang.c $M/fg_samples.c $M/fg_kick.c $M/fg_snare.c $M/fg_metal.c $M/fg_perc.c $M/fg_synth.c $M/fg_mix.c $M/fg_seq.c $M/fg_vis.c"
 mkdir -p out
 rm -f out/*.ppm out/*.png
 cc -O2 -g -std=gnu99 -Wall -Wextra -Wno-unused-parameter -I"$M" -o out/box_sim box_sim.c $S

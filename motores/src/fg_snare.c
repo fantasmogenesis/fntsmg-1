@@ -3,7 +3,7 @@
 static const uint8_t DEF[FGS_MODELS][FGS_NP] = {
     {40, 80, 90, 50, 70, 60, 70, 105},    /* caja: 909 */
     {55, 70, 45, 50, 30, 55, 40, 105},    /* aplauso */
-    {64, 0, 127, 127, 20, 0, 40, 105},    /* muestra: tal cual */
+    {64, 24, 0, 127, 64, 0, 0, 100},      /* sample: tal cual (fg_samp.h) */
 };
 static int32_t sq2(unsigned v) { return (int32_t)(v * v * 2u); }
 
@@ -77,38 +77,6 @@ static void voice_render(fgs_voice_t *v, int32_t lvl, int32_t *out, unsigned n)
         }
         out[i] += fg_mul15(s, lvl) * 2;
         if (v->amp[0] < 2000 && v->wire < 2000 && v->snap < 2000 && v->click <= 2000) v->on = 0;
-    }
-}
-
-/* ---------------------------------------------------------- muestra --- */
-/* Una caja o un clap grabados (firmware/samples): TONO ±1 octava (64 = como es), MUESTRA cuál, CAÍDA la acorta
- * (127 = entera), FILTRO paso bajo, SATURA, ARRANQUE se salta el principio, PEGADA sostiene y empuja el golpe. */
-static void smp_trig(fgs_smp_t *v, const uint8_t *p, unsigned vel)
-{
-    if (!FG_SMP_SNR_N) { v->on = 0; return; }
-    const fg_sample_t *s = &FG_SMP_SNR[p[1] * FG_SMP_SNR_N / 128u];
-    fg_smpv_start(&v->r, s, (uint32_t)p[5] * 10u);
-    int32_t d = ((int32_t)p[0] - 64) * 256 * 12 / 64;
-    uint32_t r = d >= 0 ? fg_exp2_q16((uint32_t)(d * 65536 / (12 * 256))) : (uint32_t)(((uint64_t)65536u << 16) / fg_exp2_q16((uint32_t)(-d * 65536 / (12 * 256))));
-    v->step = (uint32_t)(((uint64_t)r * s->rate) / 44100u);
-    v->amp = (int32_t)((int64_t)FG_ONE30 * vel / 127);
-    v->ka = p[2] >= 120u ? FG_ONE30 : fg_decay(p[2], 50, 100);
-    v->kill = 0; v->lp = 0; v->on = 1;
-    v->g = FG_CUT_G[p[3] >= 127u ? 1023 : 300 + p[3] * 700 / 127];
-    v->sat = 4096 + (int32_t)p[4] * 290;
-    v->hold = (int32_t)p[6] * 400; v->drive = 4096 + (int32_t)(p[6] * 4096u * 25u / 10u / 127u);
-}
-static void smp_render(fgs_smp_t *v, int32_t lvl, int32_t *out, unsigned n)
-{
-    for (unsigned i = 0; i < n && v->on; i++) {
-        int32_t x = fg_smpv_next(&v->r, v->step);
-        if (v->g < 32000) { v->lp += fg_mul15(v->g, x - v->lp); x = v->lp; }
-        x = fg_soft((int32_t)(((int64_t)x * v->sat) >> 12));
-        if (v->hold > 0) { v->hold--; x = fg_soft((int32_t)(((int64_t)x * v->drive) >> 12)); }
-        else v->amp = fg_mul30(v->amp, v->ka);
-        if (v->kill) v->amp = fg_mul30(v->amp, v->kill);
-        out[i] += fg_mul15(fg_mul15(x, (int32_t)(v->amp >> 15)), lvl) * 2;
-        if (v->r.done || v->amp < 3000) v->on = 0;
     }
 }
 
@@ -195,7 +163,7 @@ void fg_snare_trig(fg_snare_t *s, unsigned vel, const uint8_t *ov, unsigned mask
     s->v[o].kill = FG_DECAY[2]; s->c[o].kill = FG_DECAY[6]; s->sm[o].kill = FG_DECAY[6];
     s->cur ^= 1u;
     if (s->model == FGS_CAJA) voice_trig(&s->v[s->cur], p, vel);
-    else if (s->model == FGS_MUESTRA) smp_trig(&s->sm[s->cur], p, vel);
+    else if (s->model == FGS_SAMPLE) fg_sampv_trig(&s->sm[s->cur], p, vel, 0, 0);
     else clap_trig(&s->c[s->cur], p, vel);
 }
 
@@ -208,8 +176,8 @@ void fg_snare_render(fg_snare_t *s, int32_t *out, unsigned n)
     voice_render(&s->v[1], lvl, tmp, n);
     clap_render(&s->c[0], lvl, tmp, n);
     clap_render(&s->c[1], lvl, tmp, n);
-    smp_render(&s->sm[0], lvl, tmp, n);
-    smp_render(&s->sm[1], lvl, tmp, n);
+    fg_sampv_render(&s->sm[0], tmp, n);
+    fg_sampv_render(&s->sm[1], tmp, n);
     int32_t pk = 0;
     for (unsigned i = 0; i < n; i++) { int32_t v = tmp[i]; out[i] += v; if (v < 0) v = -v; if (v > pk) pk = v; }
     s->peak = pk;

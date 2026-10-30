@@ -18,6 +18,7 @@
 #include "fg_mix.h"
 #include "fg_seq.h"
 #include "fg_vis.h"
+#include "fg_usr.h"
 
 /* botones, en el orden de las etiquetas del FM-1 (el mismo que Felucca panel.c) */
 enum { FB_FX, FB_SCL, FB_ENV, FB_LFO, FB_EDIT, FB_GLO, FB_HOME, FB_SAVE, FB_ARP, FB_SEQ, FB_PLAY, FB_REC,
@@ -29,6 +30,9 @@ enum { FE_SELECT, FE_ALGO, FE_PRESET, FE_K1, FE_K2, FE_K3, FE_K4, FE_NENC };
 #define FBX_UPRE 32                         /* sonidos guardados dentro de un proyecto (los de antes: al abrirlo pasan al banco) */
 #define FBX_UBANK 96                        /* el banco de sonidos del usuario: uno para todos los proyectos (más no cabe en la RAM con 8 pistas USB) */
 #define FBX_UBANK_SLOT (FBX_SLOTS + 1)      /* su ranura en la memoria */
+#define FBX_DEV_SLOT (FBX_SLOTS + 2)        /* los ajustes del aparato (idioma): aparte de los proyectos */
+#define FBX_PROJ_MAX 8180u                  /* lo que cabe en una ranura de proyecto (8 KB menos la cabecera) */
+#define FBX_AUTO_MAX 16372u                 /* el autoguardado (16 KB): ahí sí cabe un proyecto que no cupo en una ranura */
 #define FBX_NP FG_SEQ_NP
 #define FBX_NM FG_SEQ_NM                    /* motores por pista (los sintes tienen 10) */
 
@@ -58,7 +62,7 @@ typedef struct {
     uint8_t edited[8][FBX_NM][8];           /* PRESETS: tu versión, primera de la lista */
     uint16_t has_edited[8];
     uint8_t crow[16], crep[16], chain_on;   /* CADENA: patrón de cada fila (255 = vacía), veces, si suena */
-    uint8_t mclk_in, mclk_out, mnotes;      /* MIDI: reloj entra / sale; notas 0 no, 1 entran, 2 salen, 3 las dos */
+    uint8_t reloj, rsv_clk, mnotes;         /* MIDI: RELOJ 0 no, 1 entra, 2 sale, 3 entra y sale (hasta la v6: entra y sale en dos bytes); notas 0 no, 1 entran, 2 salen, 3 las dos */
     uint8_t mix2[8][4];                     /* ENV pág. 2: FILTRO (64 abierto: abajo graves, arriba agudos), RESO, SATURA, SIDECHAIN */
     uint8_t scl2[8][4];                     /* SCL pág. 2: (MOVER no se guarda), TRANSPONER (64 = 0), HUMANO, DENSIDAD */
     uint8_t lfo2[8][4];                     /* LFO pág. 2: el segundo LFO (destino, velocidad, profundidad, forma) */
@@ -179,11 +183,16 @@ typedef struct fg_box {
     uint8_t mh_w, mh_r, mirror;
 
     /* ---------------- plataforma ---------------- */
-    /* guardado: ranura 0..FBX_SLOTS-1, FBX_SLOTS = autoguardado, FBX_UBANK_SLOT = banco de sonidos. Devuelven 0 si salió bien */
+    /* guardado: ranura 0..FBX_SLOTS-1, FBX_SLOTS = autoguardado, FBX_UBANK_SLOT = banco de sonidos, FBX_DEV_SLOT = ajustes del aparato. Devuelven 0 si salió bien */
     int (*store_write)(unsigned slot, const void *data, uint32_t len);
     int (*store_read)(unsigned slot, void *data, uint32_t cap, uint32_t *len);
     int (*store_has)(unsigned slot);
+    int (*store_info)(unsigned slot, uint32_t *len, uint32_t *crc);   /* (la app: LISTA de ranuras; 0 = vacía) */
     uint32_t (*ms)(void);
+    /* la app (PROTOCOLO.md, fg_box_proto.h): por dónde salen las respuestas (F0..F7), la flash de TUYOS y la versión */
+    int (*sysex_out)(const uint8_t *p, unsigned n);
+    const fg_usr_io_t *usr_io;
+    const char *version;
 } fg_box_t;
 
 /* la plataforma: otro núcleo para los sintes (1 = lo tomó) y un reloj para medir */
@@ -220,5 +229,9 @@ uint32_t fg_box_pack(fg_box_t *b, uint8_t *buf, uint32_t cap);
 int fg_box_unpack(fg_box_t *b, const uint8_t *buf, uint32_t len);
 /* al encender: abre el autoguardado si hay */
 void fg_box_boot(fg_box_t *b);
+void fg_box_note(fg_box_t *b, const char *label, const char *value);
+/* la app: un mensaje que llegó (desde cmd, después de F0 7D 46 47, sin F7); qué escucha (bit 0 espejo, bit 1 avisos) */
+void fg_box_sysex(fg_box_t *b, const uint8_t *m, unsigned n);
+unsigned fg_box_listening(const fg_box_t *b);
 /* el loop principal llama esto cuando no hay nada más que hacer: guarda si toca */
 void fg_box_idle(fg_box_t *b);

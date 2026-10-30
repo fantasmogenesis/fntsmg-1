@@ -5,13 +5,13 @@
  * APLAUSO:  TONO PALMAS SEPARA CAÍDA | SALA COLOR PEGADA NIVEL
  *   varias ráfagas de ruido muy cortas y desparejas (las manos que no caen juntas) por un filtro de banda;
  *   la última deja la cola, y SALA agrega una cola oscura más larga, como el cuarto.
- * MUESTRA:  TONO MUESTRA CAÍDA FILTRO | SATURA ARRANQUE PEGADA NIVEL  (cajas y claps sampleados: firmware/samples) */
+ * SAMPLE:   AFINA SAMPLE INICIO CAÍDA | CORTE CRUJIDO MODO NIVEL  (el de las 8 pistas: fg_samp.h) */
 #pragma once
 #include <stdint.h>
 #include "fg_dsp.h"
-#include "fg_samples.h"
+#include "fg_samp.h"
 
-enum { FGS_CAJA, FGS_APLAUSO, FGS_MUESTRA, FGS_MODELS };
+enum { FGS_CAJA, FGS_APLAUSO, FGS_SAMPLE, FGS_MODELS };
 #define FGS_NP 8
 
 typedef struct {
@@ -35,19 +35,13 @@ typedef struct {
     uint32_t seed;
 } fgs_clap_t;
 
-typedef struct {
-    uint8_t on;
-    fg_smpv_t r;
-    uint32_t step;
-    int32_t amp, ka, kill, lp, g, hold, drive, sat;
-} fgs_smp_t;
 
 typedef struct {
     uint8_t model, cur;
     uint8_t p[FGS_MODELS][FGS_NP];
     fgs_voice_t v[2];
     fgs_clap_t c[2];
-    fgs_smp_t sm[2];
+    fg_sampv_t sm[2];
     int32_t peak;
 } fg_snare_t;
 

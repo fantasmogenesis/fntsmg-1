@@ -10,7 +10,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 TTF = HERE.parent / "fonts" / "Manrope-var.ttf"
 OUT = HERE.parent.parent / "motores" / "src"
 
-BASE = "".join(chr(c) for c in range(32, 96)) + "ÁÉÍÓÚÑÜ·›×½–"
+BASE = "".join(chr(c) for c in range(32, 96)) + "ÁÉÍÓÚÑÜ·›×½–" + "ÃÕÂÊÔÇ"   # (0.9: el portugués)
 # nombre, tamaño en px, peso, juego de letras
 FACES = [("FG_FONT_S", 12, 700, BASE), ("FG_FONT_M", 16, 800, BASE), ("FG_FONT_L", 26, 800, BASE),
          ("FG_FONT_XL", 40, 700, BASE), ("FG_FONT_N", 64, 700, "0123456789")]

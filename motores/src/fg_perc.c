@@ -3,6 +3,7 @@
 static const uint8_t DEF[FGP_MODELS][FGP_NP] = {
     {60, 40, 60, 70, 0, 50, 30, 100},     /* gota: madera afinada, sin rebotes */
     {40, 60, 60, 40, 60, 30, 30, 100},    /* chatarra */
+    {64, 0, 0, 127, 64, 0, 0, 100},       /* sample */
 };
 static int32_t sq2(unsigned v) { return (int32_t)(v * v * 2u); }
 static int32_t peg_hold(unsigned p) { return (int32_t)(p * 10u); }
@@ -152,16 +153,17 @@ void fg_perc_trig(fg_perc_t *s, unsigned vel, const uint8_t *ov, unsigned mask)
     uint8_t p[FGP_NP];
     fg_apply_locks(p, s->p[s->model], ov, mask, FGP_NP);
     unsigned o = s->cur;
-    s->d[o].kill = FG_DECAY[2]; s->v[o].kill = FG_DECAY[2];
+    s->d[o].kill = FG_DECAY[2]; s->v[o].kill = FG_DECAY[2]; s->sm[o].kill = FG_DECAY[2];
     s->cur ^= 1u;
-    if (s->model == FGP_GOTA) drop_trig(&s->d[s->cur], p, vel);
+    if (s->model == FGP_SAMPLE) fg_sampv_trig(&s->sm[s->cur], p, vel, 0, 0);
+    else if (s->model == FGP_GOTA) drop_trig(&s->d[s->cur], p, vel);
     else scrap_trig(&s->v[s->cur], p, vel);
 }
 void fg_perc_render(fg_perc_t *s, int32_t *out, unsigned n)
 {
     int32_t tmp[FG_BLOCK];
     fg_zero(tmp, n * sizeof *tmp);
-    for (int k = 0; k < 2; k++) { drop_render(&s->d[k], tmp, n); scrap_render(&s->v[k], tmp, n); }
+    for (int k = 0; k < 2; k++) { drop_render(&s->d[k], tmp, n); scrap_render(&s->v[k], tmp, n); fg_sampv_render(&s->sm[k], tmp, n); }
     int32_t pk = 0;
     for (unsigned i = 0; i < n; i++) { int32_t v = tmp[i]; out[i] += v; if (v < 0) v = -v; if (v > pk) pk = v; }
     s->peak = pk;

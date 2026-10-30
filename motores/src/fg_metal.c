@@ -3,6 +3,7 @@
 static const uint8_t DEF[FGM_MODELS][FGM_NP] = {
     {80, 30, 80, 40, 0, 40, 30, 100},     /* granizo: hat cerrado */
     {50, 70, 64, 95, 70, 40, 20, 95},     /* placa */
+    {64, 0, 0, 127, 64, 0, 0, 100},       /* sample */
 };
 static int32_t sq2(unsigned v) { return (int32_t)(v * v * 2u); }
 static int32_t svf_f2(uint32_t fc_hz) { return 2 * fg_sin(fg_inc(fc_hz << 8) >> 2); }   /* para correr el filtro dos veces por muestra */
@@ -150,16 +151,17 @@ void fg_metal_trig(fg_metal_t *m, unsigned vel, const uint8_t *ov, unsigned mask
     uint8_t p[FGM_NP];
     fg_apply_locks(p, m->p[m->model], ov, mask, FGM_NP);
     unsigned o = m->cur;
-    m->h[o].kill = FG_DECAY[2]; m->pl[o].kill = FG_DECAY[2];     /* el golpe nuevo ahoga al anterior: hat abierto que se cierra */
+    m->h[o].kill = FG_DECAY[2]; m->pl[o].kill = FG_DECAY[2]; m->sm[o].kill = FG_DECAY[2];     /* el golpe nuevo ahoga al anterior: hat abierto que se cierra */
     m->cur ^= 1u;
-    if (m->model == FGM_GRANIZO) hail_trig(&m->h[m->cur], p, vel);
+    if (m->model == FGM_SAMPLE) fg_sampv_trig(&m->sm[m->cur], p, vel, 0, 0);
+    else if (m->model == FGM_GRANIZO) hail_trig(&m->h[m->cur], p, vel);
     else plate_trig(&m->pl[m->cur], p, vel);
 }
 void fg_metal_render(fg_metal_t *m, int32_t *out, unsigned n)
 {
     int32_t tmp[FG_BLOCK];
     fg_zero(tmp, n * sizeof *tmp);
-    for (int s = 0; s < 2; s++) { hail_render(&m->h[s], tmp, n); plate_render(&m->pl[s], tmp, n); }
+    for (int s = 0; s < 2; s++) { hail_render(&m->h[s], tmp, n); plate_render(&m->pl[s], tmp, n); fg_sampv_render(&m->sm[s], tmp, n); }
     int32_t pk = 0;
     for (unsigned i = 0; i < n; i++) { int32_t v = tmp[i]; out[i] += v; if (v < 0) v = -v; if (v > pk) pk = v; }
     m->peak = pk;

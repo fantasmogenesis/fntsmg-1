@@ -3,7 +3,7 @@
 static const uint8_t DEF[FGK_MODELS][FGK_NP] = {
     {58, 60, 55, 10, 25, 50, 45, 110},    /* barrido (TONO 58 = los 38 Hz de antes; el rango ahora baja a 20 Hz) */
     {48, 55, 60, 50, 70, 25, 45, 110},    /* membrana (TONO 48 = los 34 Hz de antes; baja a 22 Hz) */
-    {64, 0, 127, 127, 20, 0, 40, 110},    /* muestra: tal cual */
+    {64, 0, 0, 127, 64, 0, 0, 100},       /* sample: tal cual (fg_samp.h) */
 };
 /* modos de una membrana circular: (0,1) (1,1) (2,1) (0,2), en Q16 */
 static const uint32_t MODE_RATIO[4] = {65536, 104464, 139985, 150405};
@@ -134,40 +134,10 @@ static void memb_render(fgk_memb_t *v, int32_t *out, unsigned n)
     }
 }
 
-/* ---------------------------------------------------------- muestra --- */
-/* Un bombo grabado: TONO ±1 octava (64 = como es), MUESTRA cuál, CAÍDA lo acorta (127 = entero), FILTRO paso bajo
- * (127 = abierto), ARRANQUE se salta el principio (golpe más blando o más seco), PEGADA como en los otros dos */
-static void smp_trig(fgk_smp_t *v, const uint8_t *p, unsigned vel)
-{
-    if (!FG_SMP_KICK_N) { v->on = 0; return; }
-    const fg_sample_t *s = &FG_SMP_KICK[p[1] * FG_SMP_KICK_N / 128u];
-    fg_smpv_start(&v->r, s, (uint32_t)p[5] * 10u);                         /* ARRANQUE: hasta ~29 ms */
-    int32_t d = ((int32_t)p[0] - 64) * 256 * 12 / 64;                       /* semitonos Q8 */
-    uint32_t r = d >= 0 ? fg_exp2_q16((uint32_t)(d * 65536 / (12 * 256))) : (uint32_t)(((uint64_t)65536u << 16) / fg_exp2_q16((uint32_t)(-d * 65536 / (12 * 256))));
-    v->step = (uint32_t)(((uint64_t)r * s->rate) / 44100u);
-    v->amp = (int32_t)((int64_t)FG_ONE30 * vel / 127);
-    v->ka = p[2] >= 120u ? FG_ONE30 : fg_decay(p[2], 30, 100);
-    v->kill = 0; v->lp = 0; v->on = 1;
-    v->g = FG_CUT_G[p[3] >= 127u ? 1023 : 300 + p[3] * 700 / 127];
-    v->hold = peg_hold(p[6]) * 44; v->drive = peg_drive(p[6]);
-}
-static void smp_render(fgk_smp_t *v, int32_t *out, unsigned n)
-{
-    for (unsigned i = 0; i < n && v->on; i++) {
-        int32_t x = fg_smpv_next(&v->r, v->step);
-        if (v->g < 32000) { v->lp += fg_mul15(v->g, x - v->lp); x = v->lp; }
-        if (v->hold > 0) { v->hold--; x = fg_soft((int32_t)(((int64_t)x * v->drive) >> 12)); }
-        else v->amp = fg_mul30(v->amp, v->ka);
-        if (v->kill) v->amp = fg_mul30(v->amp, v->kill);
-        out[i] += fg_mul15(x, (int32_t)(v->amp >> 15));
-        if (v->r.done || v->amp < 3000) v->on = 0;
-    }
-}
-
 /* ----------------------------------------------------------- satura --- */
 /* SATURA (donde antes estaba RUMBLE): el bombo entero por una ganancia de x1 a x10 hacia una saturación suave, y un
  * realce de lo que pasa de ~700 Hz: armónicos y ataque que se oyen aun en bocinas chicas y cortan la mezcla */
-static int32_t satura_amount(const fg_kick_t *k) { return k->p[k->model][k->model == FGK_MEMBRANA ? 5 : 4]; }
+static int32_t satura_amount(const fg_kick_t *k) { return k->p[k->model][k->model == FGK_MEMBRANA ? 5 : 4]; }   /* (SAMPLE no: su NIVEL satura) */
 static void satura(fg_kick_t *k, int32_t *x, unsigned n)
 {
     int32_t a = satura_amount(k), g = 4096 + a * 290, pres = a * 160, lp = k->sat_lp;
@@ -208,7 +178,7 @@ void fg_kick_trig(fg_kick_t *k, unsigned vel, const uint8_t *ov, unsigned mask)
     uint8_t p[FGK_NP];
     fg_apply_locks(p, k->p[k->model], ov, mask, FGK_NP);
     if (k->model == FGK_BARRIDO) sweep_trig(&k->sw[k->cur], p, vel);
-    else if (k->model == FGK_MUESTRA) smp_trig(&k->sm[k->cur], p, vel);
+    else if (k->model == FGK_SAMPLE) fg_sampv_trig(&k->sm[k->cur], p, vel, 0, 0);
     else memb_trig(&k->mb[k->cur], p, vel);
 }
 
@@ -219,9 +189,9 @@ void fg_kick_render(fg_kick_t *k, int32_t *out, unsigned n)
     for (int s = 0; s < 2; s++) {
         sweep_render(&k->sw[s], tmp, n);
         memb_render(&k->mb[s], tmp, n);
-        smp_render(&k->sm[s], tmp, n);
+        fg_sampv_render(&k->sm[s], tmp, n);
     }
-    satura(k, tmp, n);
+    if (k->model != FGK_SAMPLE) satura(k, tmp, n);
     int32_t pk = 0;
     for (unsigned i = 0; i < n; i++) {
         int32_t v = tmp[i];

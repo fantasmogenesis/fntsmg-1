@@ -4,13 +4,14 @@
 #pragma once
 #include <stdint.h>
 #include "fg_dsp.h"
+#include "fg_samp.h"
 #include "fg_samples.h"
 
-enum { FGK_BARRIDO, FGK_MEMBRANA, FGK_MUESTRA, FGK_MODELS };
+enum { FGK_BARRIDO, FGK_MEMBRANA, FGK_SAMPLE, FGK_MODELS };
 #define FGK_NP 8
 /* BARRIDO:  TONO BARRIDO CAÍDA DOBLEZ | SATURA CLICK PEGADA NIVEL
  * MEMBRANA: TONO TENSIÓN CAÍDA MATERIAL | GOLPE SATURA PEGADA NIVEL
- * MUESTRA:  TONO MUESTRA CAÍDA FILTRO | SATURA ARRANQUE PEGADA NIVEL  (bombos sampleados: firmware/samples)
+ * SAMPLE:   AFINA SAMPLE INICIO CAÍDA | CORTE CRUJIDO MODO NIVEL  (el de las 8 pistas: fg_samp.h)
  * TONO: barrido 20..97 Hz, membrana 22..120 Hz. SATURA: drive y realce para que corte en la mezcla.
  * PEGADA: el cuerpo se sostiene unos ms antes de caer y el golpe entra a una saturación */
 
@@ -39,19 +40,13 @@ typedef struct {
 } fgk_memb_t;
 
 
-typedef struct {
-    uint8_t on;
-    fg_smpv_t r;
-    uint32_t step;
-    int32_t amp, ka, kill, lp, g, hold, drive;
-} fgk_smp_t;
 
 typedef struct {
     uint8_t model, cur;
     uint8_t p[FGK_MODELS][FGK_NP];
     fgk_sweep_t sw[2];
     fgk_memb_t mb[2];
-    fgk_smp_t sm[2];
+    fg_sampv_t sm[2];
     int32_t sat_lp;                  /* SATURA: paso bajo para el realce */
     int32_t peak;                    /* pico del último bloque, para los visuales */
 } fg_kick_t;

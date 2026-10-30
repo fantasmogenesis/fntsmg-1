@@ -4,6 +4,7 @@
 #include "fg_box.h"
 #include "fg_dsp.h"
 #include "fg_font.h"
+#include "fg_lang.h"
 
 #define RGB(r, g, b) ((uint16_t)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3)))
 static const uint16_t C_FG = RGB(242, 238, 228), C_BG = RGB(11, 11, 10), C_DIM = RGB(150, 146, 138), C_LINE = RGB(70, 68, 64),
@@ -45,15 +46,15 @@ static void rect(int x, int y, int w, int h, uint16_t c)
     d->kind = D_RECT; d->x = (int16_t)x; d->y = (int16_t)y; d->w = (int16_t)w; d->h = (int16_t)h; d->col = c;
 }
 /* fit(): la letra más grande (hasta px) con la que la palabra cabe en maxw; si ni la chica cabe, la chica */
-static void text(const char *s, int x, int y, int px, int maxw, uint16_t c, int right)
+static void text(const char *s0, int x, int y, int px, int maxw, uint16_t c, int right)
 {
     static const fg_font_t *const F[4] = {&FG_FONT_XL, &FG_FONT_L, &FG_FONT_M, &FG_FONT_S};
-    int i = px >= 36 ? 0 : px >= 20 ? 1 : px >= 13 ? 2 : 3;
-    while (i < 3 && text_w(F[i], s) > maxw) i++;
     if (nDL >= NDL) return;
     dcmd_t *d = &DL[nDL++];
+    fg_tr(s0, d->s, sizeof d->s);                          /* en el idioma del aparato (fg_lang.c) */
+    int i = px >= 36 ? 0 : px >= 20 ? 1 : px >= 13 ? 2 : 3;
+    while (i < 3 && text_w(F[i], d->s) > maxw) i++;
     d->kind = D_TEXT; d->f = F[i]; d->x = (int16_t)x; d->y = (int16_t)y; d->col = c; d->align = (uint8_t)right;
-    unsigned k = 0; while (s[k] && k + 1 < sizeof d->s) { d->s[k] = s[k]; k++; } d->s[k] = 0;
 }
 static void number(const char *s, int x, int y, uint16_t c)
 {
@@ -81,8 +82,10 @@ static void cati(char *d, int v, unsigned cap)
     scat(d, o, cap);
 }
 static const char *const TN[8] = {"BOMBO", "CAJA", "METAL", "PERC", "SINTE A", "SINTE B", "SINTE C", "SINTE D"};
-static const char *const MNAME[4][3] = {{"BARRIDO", "MEMBRANA", "MUESTRA"}, {"CAJA", "APLAUSO", "MUESTRA"}, {"GRANIZO", "PLACA", ""}, {"GOTA", "CHATARRA", ""}};
-static const char *const YNAME[8] = {"SH", "ÁCIDO", "FM", "CUERDAS", "TEXTURA", "DRON", "DUB", "RESONADOR"};
+/* los nombres de los motores no se traducen ("\1": fg_lang.c) */
+static const char *const MNAME[4][3] = {{"\1BARRIDO", "\1MEMBRANA", "\1SAMPLE"}, {"\1CAJA", "\1APLAUSO", "\1SAMPLE"}, {"\1GRANIZO", "\1PLACA", "\1SAMPLE"},
+                                        {"\1GOTA", "\1CHATARRA", "\1SAMPLE"}};
+static const char *const YNAME[FGY_MODELS] = {"\1SH", "\1ÁCIDO", "\1FM", "\1CUERDAS", "\1TEXTURA", "\1DRON", "\1DUB", "\1RESONADOR", "\1SAMPLE"};
 static const char *const CONDS[12] = {"SIEMPRE", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "SIN FILL"};
 static const char *const MIXL[4] = {"VOLUMEN", "PANEO", "DELAY", "REVERB"};
 
@@ -346,13 +349,13 @@ void fg_box_frame(fg_box_t *b)
         rect(0, 0, 240, 40, C_BG); rect(0, 40, 240, 1, C_LINE);
         s1[0] = 0; cati(s1, b->sel + 1, sizeof s1); scat(s1, " · ", sizeof s1); scat(s1, TN[b->sel], sizeof s1);
         text(s1, 12, 25, 13, 100, C_DIM, 0);
-        text(b->sel >= 4 ? YNAME[b->s.model[b->sel] % 8u] : MNAME[b->sel][b->s.model[b->sel] % 3u], 228, 28, 22, 120, C_FG, 1);
+        text(b->sel >= 4 ? YNAME[b->s.model[b->sel] % FGY_MODELS] : MNAME[b->sel][b->s.model[b->sel] % 3u], 228, 28, 22, 120, C_FG, 1);
     } else if (now < b->big_until) {
         band(96);
         char d[2] = {(char)('1' + b->sel), 0};
         number(d, 10, 226, C_FG);
         text(TN[b->sel], 74, 174, 13, 154, C_DIM, 0);
-        text(b->sel >= 4 ? YNAME[b->s.model[b->sel] % 8u] : MNAME[b->sel][b->s.model[b->sel] % 3u], 74, 212, 28, 154, C_FG, 0);
+        text(b->sel >= 4 ? YNAME[b->s.model[b->sel] % FGY_MODELS] : MNAME[b->sel][b->s.model[b->sel] % 3u], 74, 212, 28, 154, C_FG, 0);
     } else if (b->nhw && b->seqmode && nhs) {
         band(40);
         scpy(s1, "LOCK  ·  PASO", sizeof s1);

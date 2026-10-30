@@ -9,7 +9,7 @@ if [ "$1" = host ]; then exec host/build.sh; fi
 HERE=$PWD
 MOT=$HERE/../motores/src
 FEL=$HERE/../vendor/Felucca
-SRCS="fg_tables.c fg_smp.c fg_samples.c fg_kick.c fg_snare.c fg_metal.c fg_perc.c fg_synth.c fg_mix.c fg_seq.c fg_vis.c fg_font.c fg_box.c fg_box_draw.c"
+SRCS="fg_tables.c fg_smp.c fg_samp.c fg_usr.c fg_lang.c fg_samples.c fg_kick.c fg_snare.c fg_metal.c fg_perc.c fg_synth.c fg_mix.c fg_seq.c fg_vis.c fg_font.c fg_box.c fg_box_draw.c"
 mkdir -p out
 rm -rf "$FEL/build/fg"; mkdir -p "$FEL/build/fg"
 for f in $SRCS; do cp "$MOT/$f" "$FEL/build/fg/"; done

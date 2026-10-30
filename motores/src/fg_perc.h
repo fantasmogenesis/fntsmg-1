@@ -8,8 +8,9 @@
 #pragma once
 #include <stdint.h>
 #include "fg_dsp.h"
+#include "fg_samp.h"
 
-enum { FGP_GOTA, FGP_CHATARRA, FGP_MODELS };
+enum { FGP_GOTA, FGP_CHATARRA, FGP_SAMPLE, FGP_MODELS };   /* SAMPLE: fg_samp.h */
 #define FGP_NP 8
 
 typedef struct {
@@ -39,6 +40,7 @@ typedef struct {
     uint8_t p[FGP_MODELS][FGP_NP];
     fgp_drop_t d[2];
     fgp_voice_t v[2];
+    fg_sampv_t sm[2];
     int32_t peak;
 } fg_perc_t;
 

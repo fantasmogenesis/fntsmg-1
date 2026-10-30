@@ -4,39 +4,50 @@
 #include <stddef.h>
 #include "fg_box.h"
 #include "fg_dsp.h"
+#include "fg_lang.h"
+
+/* la app (fg_box_proto.h, incluido al final) */
+static void px_init(void);
+static void px_tick(fg_box_t *b);
+static int px_take_buf(int user);                          /* (comparte pack_buf con el guardado) */
 
 /* ------------------------------------------------------------------ tablas --- */
 
 static const char *const TN[8] = {"BOMBO", "CAJA", "METAL", "PERC", "SINTE A", "SINTE B", "SINTE C", "SINTE D"};
-static const uint8_t NMODELS[8] = {3, 3, 2, 2, FGY_MODELS, FGY_MODELS, FGY_MODELS, FGY_MODELS};
-static const char *const MNAME[4][3] = {{"BARRIDO", "MEMBRANA", "MUESTRA"}, {"CAJA", "APLAUSO", "MUESTRA"}, {"GRANIZO", "PLACA", ""}, {"GOTA", "CHATARRA", ""}};
-static const char *const YNAME[FGY_MODELS] = {"SH", "ÁCIDO", "FM", "CUERDAS", "TEXTURA", "DRON", "DUB", "RESONADOR"};
+static const uint8_t NMODELS[8] = {3, 3, 3, 3, FGY_MODELS, FGY_MODELS, FGY_MODELS, FGY_MODELS};
+#define DSAMPLE 2u                                       /* SAMPLE en la percusión (en los sintes: FGY_SAMPLE) */
+/* los nombres de los motores no se traducen: "\1" adelante (fg_lang.c lo quita) */
+static const char *const MNAME[4][3] = {{"\1BARRIDO", "\1MEMBRANA", "\1SAMPLE"}, {"\1CAJA", "\1APLAUSO", "\1SAMPLE"}, {"\1GRANIZO", "\1PLACA", "\1SAMPLE"},
+                                        {"\1GOTA", "\1CHATARRA", "\1SAMPLE"}};
+static const char *const YNAME[FGY_MODELS] = {"\1SH", "\1ÁCIDO", "\1FM", "\1CUERDAS", "\1TEXTURA", "\1DRON", "\1DUB", "\1RESONADOR", "\1SAMPLE"};
+#define SAMPLE_L {"AFINA", "SAMPLE", "INICIO", "CAÍDA", "CORTE", "CRUJIDO", "MODO"}
 static const char *const PLAB_D[4][3][7] = {
     {{"TONO", "BARRIDO", "CAÍDA", "DOBLEZ", "SATURA", "CLICK", "PEGADA"}, {"TONO", "TENSIÓN", "CAÍDA", "MATERIAL", "GOLPE", "SATURA", "PEGADA"},
-     {"TONO", "MUESTRA", "CAÍDA", "FILTRO", "SATURA", "ARRANQUE", "PEGADA"}},
+     SAMPLE_L},
     {{"TONO", "CUERPO", "RUIDO", "CAÍDA", "BRILLO", "CHASQUIDO", "PEGADA"}, {"TONO", "PALMAS", "SEPARA", "CAÍDA", "SALA", "COLOR", "PEGADA"},
-     {"TONO", "MUESTRA", "CAÍDA", "FILTRO", "SATURA", "ARRANQUE", "PEGADA"}},
-    {{"DENSIDAD", "CAÍDA", "COLOR", "RESO", "AGITA", "GRANO", "PEGADA"}, {"TONO", "CAÍDA", "FORMA", "BRILLO", "GOLPE", "BATIDO", "PEGADA"}},
-    {{"TONO", "GOTA", "RESONANCIA", "DUREZA", "REBOTE", "MATERIAL", "PEGADA"}, {"TONO", "CAOS", "PEINE", "CAÍDA", "ROTURA", "BITS", "RUIDO"}}};
+     SAMPLE_L},
+    {{"DENSIDAD", "CAÍDA", "COLOR", "RESO", "AGITA", "GRANO", "PEGADA"}, {"TONO", "CAÍDA", "FORMA", "BRILLO", "GOLPE", "BATIDO", "PEGADA"}, SAMPLE_L},
+    {{"TONO", "GOTA", "RESONANCIA", "DUREZA", "REBOTE", "MATERIAL", "PEGADA"}, {"TONO", "CAOS", "PEINE", "CAÍDA", "ROTURA", "BITS", "RUIDO"}, SAMPLE_L}};
 static const char *const PLAB_Y[FGY_MODELS][7] = {
     {"NOTA", "ONDA", "SUB", "CORTE", "RESO", "ENV", "FORMA"}, {"NOTA", "CORTE", "RESO", "ENV", "CAÍDA", "RUGOSIDAD", "GLIDE"},
     {"NOTA", "RAZÓN", "ÍNDICE", "FEEDBACK", "GOLPE", "CAÍDA", "RUGIDO"}, {"NOTA", "DESAFINA", "BRILLO", "CORO", "ATAQUE", "SALIDA", "SUB"},
     {"NOTA", "MUESTRA", "POSICIÓN", "MOVIMIENTO", "BRILLO", "LAVADO", "SALIDA"}, {"NOTA", "LATIDO", "FORMA", "MOVIMIENTO", "BRILLO", "ENSAMBLE", "SATURA"},
-    {"NOTA", "TIPO", "CORTE", "CAÍDA", "ECO", "TIEMPO", "SUCIO"}, {"NOTA", "MATERIAL", "CAÍDA", "ARCO", "BRILLO", "SIMPATÍA", "MOVIMIENTO"}};
+    {"NOTA", "TIPO", "CORTE", "CAÍDA", "ECO", "TIEMPO", "SUCIO"}, {"NOTA", "MATERIAL", "CAÍDA", "ARCO", "BRILLO", "SIMPATÍA", "MOVIMIENTO"}, SAMPLE_L};
 
 typedef struct { const char *name; uint8_t p[8]; } preset_t;
 /* presets de fábrica: 20 por motor, en motores/tools/presets.py (de ahí sale fg_presets.h con el NIVEL ya igualado) */
 #include "fg_presets.h"
 #define NP_(a) (sizeof(a) / sizeof(a[0]))
+/* (los de SAMPLE en el bombo y la caja son los de MUESTRA, que se convierten al leerlos: preset_p) */
 static const preset_t *const PR_D[4][3] = {{PR_BARRIDO, PR_MEMB, PR_KMUESTRA}, {PR_CAJA, PR_APLAUSO, PR_SMUESTRA}, {PR_GRANIZO, PR_PLACA, 0}, {PR_GOTA, PR_CHATARRA, 0}};
 static const uint8_t PRN_D[4][3] = {{NP_(PR_BARRIDO), NP_(PR_MEMB), NP_(PR_KMUESTRA)}, {NP_(PR_CAJA), NP_(PR_APLAUSO), NP_(PR_SMUESTRA)}, {NP_(PR_GRANIZO), NP_(PR_PLACA), 0},
                                     {NP_(PR_GOTA), NP_(PR_CHATARRA), 0}};
-static const preset_t *const PR_Y[FGY_MODELS] = {PR_SH, PR_ACIDO, PR_FM, PR_CUERDAS, PR_TEXTURA, PR_DRON, PR_DUB, PR_RESON};
-static const uint8_t PRN_Y[FGY_MODELS] = {NP_(PR_SH), NP_(PR_ACIDO), NP_(PR_FM), NP_(PR_CUERDAS), NP_(PR_TEXTURA), NP_(PR_DRON), NP_(PR_DUB), NP_(PR_RESON)};
+static const preset_t *const PR_Y[FGY_MODELS] = {PR_SH, PR_ACIDO, PR_FM, PR_CUERDAS, PR_TEXTURA, PR_DRON, PR_DUB, PR_RESON, 0};
+static const uint8_t PRN_Y[FGY_MODELS] = {NP_(PR_SH), NP_(PR_ACIDO), NP_(PR_FM), NP_(PR_CUERDAS), NP_(PR_TEXTURA), NP_(PR_DRON), NP_(PR_DUB), NP_(PR_RESON), 0};
 /* el banco de sonidos del usuario: los mismos en todos los proyectos (en el FM-1 va a .bss, fuera del pool) */
 static fbx_upre_t UB[FBX_UBANK];
 static uint8_t UBN, ub_dirty;
-#define UB_VER 2u
+#define UB_VER 3u                                        /* 3 (0.9): los sonidos de MUESTRA pasan a SAMPLE */
 static int remap_upre_v4(fbx_upre_t *u);
 
 static const char *const MIXL[4] = {"VOLUMEN", "PANEO", "DELAY", "REVERB"};
@@ -80,12 +91,16 @@ static void sint(char *d, int v, unsigned cap)
 }
 static void cati(char *d, int v, unsigned cap) { char t[12]; sint(t, v, sizeof t); scat(d, t, cap); }
 static void catsi(char *d, int v, unsigned cap) { if (v > 0) scat(d, "+", cap); cati(d, v, cap); }   /* con signo */
+/* un texto que la pantalla no traduce (nombres de sonidos y de samples): uno a la vez */
+static const char *raw(const char *s) { static char o[24]; o[0] = 1; scpy(o + 1, s, sizeof o - 1u); return o; }
+static uint8_t dev_dirty;                                 /* el idioma cambió: se escribe parado (dev_flush) */
 static int is_synth(unsigned t) { return t >= 4; }
 static fg_track_t *TRK(fg_box_t *b) { return &b->Q.pat[b->s.cur].tr[b->sel]; }
 static uint8_t *P(fg_box_t *b, unsigned t) { return b->s.p[t][b->s.model[t]]; }
 static int held(const fg_box_t *b, unsigned id) { return (b->down >> id) & 1u; }
 static int held_b(const fg_box_t *b, unsigned i) { return (b->bdown >> i) & 1u; }
 static const char *MN(const fg_box_t *b, unsigned t) { return is_synth(t) ? YNAME[b->s.model[t] % FGY_MODELS] : MNAME[t][b->s.model[t] % 3u]; }
+static int is_samp(const fg_box_t *b, unsigned t) { return b->s.model[t] == (is_synth(t) ? FGY_SAMPLE : DSAMPLE); }
 static const char *PL(const fg_box_t *b, unsigned t, unsigned i)
 {
     if (i >= 7) return "AZAR";
@@ -98,7 +113,7 @@ static int semi_of(int v) { return v * 61 / 128; }
 /* ------------------------------------------------------ cola de mensajes --- */
 
 enum { M_PARAM = 1, M_MODEL, M_MIX, M_FX, M_PERF, M_PLAY, M_BPM, M_SWING, M_MUTE, M_FILL, M_QUEUE, M_CHAIN, M_AZAR,
-       M_LFO, M_TRANSP, M_MUTEQ, M_TRIG, M_CHAINSET, M_MIDI, M_NOTEOFF, M_SCL2, M_LFO2, M_ARPCFG, M_ARPKEY, M_PERFK };
+       M_LFO, M_TRANSP, M_MUTEQ, M_TRIG, M_CHAINSET, M_MIDI, M_NOTEOFF, M_SCL2, M_LFO2, M_ARPCFG, M_ARPKEY, M_PERFK, M_SAMPOFF };
 static void post(fg_box_t *b, unsigned type, unsigned t, unsigned a, unsigned bb, int32_t v)
 {
     uint16_t w = b->mq_w, n = (uint16_t)((w + 1u) % (sizeof b->mq / sizeof b->mq[0]));
@@ -151,6 +166,7 @@ static void eng_model(fg_box_t *b, unsigned t, unsigned m)
     }
 }
 
+static void usr_off(fg_sampv_t *v) { if (v->on && v->s >= fg_usr && v->s < fg_usr + FGS_USR) v->on = 0; }
 static void apply_msg(fg_box_t *b, const fbx_msg_t *m)
 {
     fg_seq_t *q = &b->Q;
@@ -198,6 +214,10 @@ static void apply_msg(fg_box_t *b, const fbx_msg_t *m)
         if (n == 1u) fg_seq_queue(q, q->chain[0]);   /* una sola fila: ese patrón en loop */
         break; }
     case M_MIDI: b->mclk_out = m->a; b->mnotes_out = m->b; b->ck_in = (uint8_t)(m->v != 0); if (!b->ck_in) b->ck_on = 0; break;
+    case M_SAMPOFF:                                       /* la app va a borrar o escribir TUYOS: lo que suene de ahí se calla */
+        for (unsigned k = 0; k < 2u; k++) { usr_off(&b->K.sm[k]); usr_off(&b->SN.sm[k]); usr_off(&b->MT.sm[k]); usr_off(&b->PC.sm[k]); }
+        for (unsigned s = 0; s < 4u; s++) for (unsigned k = 0; k < FGY_VOICES; k++) if (b->SY[s].v[k].model == FGY_SAMPLE) { usr_off(&b->SY[s].v[k].smp); b->SY[s].v[k].on = b->SY[s].v[k].smp.on; }
+        break;
     }
 }
 
@@ -559,7 +579,7 @@ static void send_arp(fg_box_t *b, unsigned t)
 }
 static void send_param(fg_box_t *b, unsigned t, unsigned m, unsigned i) { post(b, M_PARAM, t, m, i, b->s.p[t][m][i]); }
 static void send_mutes(fg_box_t *b, int now) { post(b, M_MUTE, 0, b->has_pend ? b->pend : b->mute, b->solo, now); }
-static void send_midi_cfg(fg_box_t *b) { post(b, M_MIDI, 0, b->s.mclk_out, (b->s.mnotes & 2u) != 0, b->s.mclk_in); }
+static void send_midi_cfg(fg_box_t *b) { post(b, M_MIDI, 0, b->s.reloj >> 1 & 1u, (b->s.mnotes & 2u) != 0, b->s.reloj & 1u); }
 /* CADENA: las filas llenas de arriba a abajo (una vacía se salta), cada una sus veces; se despliega para el
  * secuenciador */
 static unsigned chain_rows(const fg_box_t *b) { unsigned n = 0; for (unsigned r = 0; r < 16; r++) n += b->s.crow[r] < FBX_NP; return n; }
@@ -611,7 +631,7 @@ static void push_all(fg_box_t *b)
     fg_seq_swing(&b->Q, b->s.swing);
     b->Q.transp = b->s.transp; b->Q.muteq = b->s.muteq;
     b->Q.cur = b->s.cur;
-    b->mclk_out = b->s.mclk_out; b->mnotes_out = (b->s.mnotes & 2u) != 0; b->ck_in = b->s.mclk_in;
+    b->mclk_out = b->s.reloj >> 1 & 1u; b->mnotes_out = (b->s.mnotes & 2u) != 0; b->ck_in = b->s.reloj & 1u;
 }
 
 /* el patrón por defecto de la caja (seed() de caja/index.html) */
@@ -667,7 +687,7 @@ static void song_defaults(fg_box_t *b)
     for (unsigned i = 0; i < 8; i++) s->fx[i] = FXDEF[i];
     s->bpm = 124; s->scale = 1;
     for (unsigned r = 0; r < 16; r++) { s->crow[r] = 255; s->crep[r] = 1; }
-    s->mclk_in = 1; s->mclk_out = 1;
+    s->reloj = 3;
     for (unsigned t = 0; t < 8; t++) {
         s->mix2[t][0] = 64; s->mix2[t][3] = t ? 64 : 0;  /* FILTRO abierto; SIDECHAIN: lo de siempre (el bombo no se baja solo) */
         s->scl2[t][1] = 64; s->scl2[t][3] = 127;          /* sin transponer; DENSIDAD: todos los pasos */
@@ -684,8 +704,14 @@ void fg_box_init(fg_box_t *b, void *vis_mem, unsigned vis_w, unsigned vis_h, uns
     int (*sr)(unsigned, void *, uint32_t, uint32_t *) = b->store_read;
     int (*sh)(unsigned) = b->store_has;
     uint32_t (*ms)(void) = b->ms;
+    int (*si)(unsigned, uint32_t *, uint32_t *) = b->store_info;
+    int (*so)(const uint8_t *, unsigned) = b->sysex_out;
+    const fg_usr_io_t *ui = b->usr_io;
+    const char *ver = b->version;
     fg_zero(b, sizeof *b);
     b->store_write = sw; b->store_read = sr; b->store_has = sh; b->ms = ms;
+    b->store_info = si; b->sysex_out = so; b->usr_io = ui; b->version = ver;
+    px_init();
     fg_kick_init(&b->K); fg_snare_init(&b->SN); fg_metal_init(&b->MT); fg_perc_init(&b->PC);
     for (unsigned k = 0; k < 4; k++) fg_synth_init(&b->SY[k], 0, 0);
     fg_mix_init(&b->MX);
@@ -718,6 +744,7 @@ static unsigned held_steps(fg_box_t *b, uint8_t *out)
 }
 static int rel_param(const fg_box_t *b, unsigned t, unsigned i) { (void)b; return is_synth(t) && i == 0; }
 
+static int tget(fg_box_t *b, const tgt_t *g);
 static int target(fg_box_t *b, unsigned k, tgt_t *g)
 {
     unsigned t = b->sel;
@@ -756,6 +783,12 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
         g->idx = (uint8_t)i; g->label = PL(b, t, i);
         if (i == 7) { g->kind = TK_AZAR; return 1; }
         g->kind = nhs ? TK_PLOCK : TK_PARAM;
+        if (is_samp(b, t)) {
+            if (i == 0 && !is_synth(t)) { g->min = 40; g->max = 88; }
+            if (i == 6) g->step8 = 43u * 256u;                /* un clic, otro MODO */
+            if (i == 1) { static char L[24]; static const char *const BK[4] = {"BOMBOS", "CAJAS", "TEXTURAS", "TUYOS"};
+                          int v = tget(b, g); scpy(L, "SAMPLE · ", sizeof L); scat(L, BK[fg_samp_bank((unsigned)v)], sizeof L); g->label = L; }
+        }
         return 1; }
     case PG_ENV:
         if (b->pn) { static const char *const L[4] = {"FILTRO", "ANCHO", "SATURA", "SIDECHAIN"}; g->idx = (uint8_t)(4 + k); g->label = L[k]; g->kind = TK_MIX; return 1; }
@@ -786,9 +819,9 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
             g->kind = TK_GLO; g->idx = (uint8_t)k; g->label = L[k]; g->min = MI[k]; g->max = MA[k]; g->step8 = ST[k]; return 1;
         }
         {
-            static const char *const L[4] = {"MUTES", "RELOJ ENTRA", "RELOJ SALE", "NOTAS Y CC"};
-            static const int16_t MA[4] = {1, 1, 1, 3};
-            static const uint16_t ST[4] = {64, 64, 64, 96};
+            static const char *const L[4] = {"MUTES", "RELOJ", "IDIOMA", "NOTAS Y CC"};
+            static const int16_t MA[4] = {1, 3, FG_LANGS - 1, 3};
+            static const uint16_t ST[4] = {64, 96, 96, 96};
             g->kind = TK_GLO2; g->idx = (uint8_t)k; g->label = L[k]; g->max = MA[k]; g->step8 = ST[k]; return 1;
         }
     case PG_CHAIN: {
@@ -822,7 +855,7 @@ static int tget(fg_box_t *b, const tgt_t *g)
     case TK_SCL: return g->idx == 0 ? tr->len : g->idx == 1 ? tr->spd : b->s.eu[b->s.cur][t][g->idx - 2];
     case TK_LFO: return b->s.lfo[t][g->idx];
     case TK_GLO: return g->idx == 0 ? b->s.bpm : g->idx == 1 ? b->s.swing : g->idx == 2 ? b->s.transp : b->s.scale;
-    case TK_GLO2: return g->idx == 0 ? b->s.muteq : g->idx == 1 ? b->s.mclk_in : g->idx == 2 ? b->s.mclk_out : b->s.mnotes;
+    case TK_GLO2: return g->idx == 0 ? b->s.muteq : g->idx == 1 ? b->s.reloj : g->idx == 2 ? fg_lang : b->s.mnotes;
     case TK_CHAIN: { unsigned r = b->crow_cur; return g->idx == 0 ? (b->s.crow[r] == 255 ? 0 : b->s.crow[r] + 1) : g->idx == 1 ? b->s.crep[r] : b->s.chain_on; }
     }
     return 0;
@@ -902,7 +935,8 @@ static void tset(fg_box_t *b, const tgt_t *g, int v)
         break;
     case TK_GLO2:
         if (g->idx == 0) { b->s.muteq = (uint8_t)v; post(b, M_MUTEQ, 0, 0, 0, v); }
-        else { if (g->idx == 1) b->s.mclk_in = (uint8_t)v; else if (g->idx == 2) b->s.mclk_out = (uint8_t)v; else b->s.mnotes = (uint8_t)v; send_midi_cfg(b); }
+        else if (g->idx == 2) { fg_lang = (uint8_t)v; dev_dirty = 1; return; }   /* (del aparato, no del proyecto) */
+        else { if (g->idx == 1) b->s.reloj = (uint8_t)v; else b->s.mnotes = (uint8_t)v; send_midi_cfg(b); }
         break;
     case TK_CHAIN: {
         unsigned r = b->crow_cur;
@@ -931,12 +965,21 @@ static void fmt_param(fg_box_t *b, unsigned t, unsigned i, int v, int rel, char 
         if (m == FGY_SH && i == 2) { if (!v) scpy(o, "SIN SUB", cap); else { scpy(o, v > 95 ? "−2 OCT " : "−1 OCT ", cap); cati(o, v > 95 ? 127 : v * 127 / 95, cap); } return; }
         if (m == FGY_SH && i == 6) { scpy(o, SHF[v >> 5], cap); scat(o, " ", cap); cati(o, (v & 31) * 100 / 31, cap); return; }
     }
-    if (t == 1 && m == 1 && i == 1) { cati(o, 1 + v * 5 / 127, cap); scat(o, " PALMAS", cap); return; }
-    if (i == 1 && ((t == 0 && m == 2) || (t == 1 && m == 2) || (is_synth(t) && m == FGY_TEXTURA))) {   /* MUESTRA: su nombre */
-        const fg_sample_t *bk = t == 0 ? FG_SMP_KICK : t == 1 ? FG_SMP_SNR : FG_SMP_TEX;
-        unsigned nb = t == 0 ? FG_SMP_KICK_N : t == 1 ? FG_SMP_SNR_N : FG_SMP_TEX_N;
-        if (nb) { scpy(o, bk[(unsigned)v * nb / 128u].name, cap); return; }
+    if (is_samp(b, t)) {
+        static const char *const MO[3] = {"GOLPE", "LAZO", "REVERSA"};
+        const fg_sample_t *sm;
+        switch (i) {
+        case 0: catsi(o, clampi(v, 40, 88) - 64, cap); scat(o, " ST", cap); return;   /* (en los sintes, la nota: arriba) */
+        case 1: sm = fg_samp_at((unsigned)v); scpy(o, sm ? raw(sm->name) : "NO HAY", cap); return;
+        case 2: cati(o, v * 100 / 128, cap); scat(o, "%", cap); return;
+        case 3: if (v >= 120) scpy(o, "ENTERA", cap); else cati(o, v, cap); return;
+        case 4: if (v >= 63 && v <= 65) scpy(o, "ABIERTO", cap); else { scpy(o, v < 64 ? "GRAVES " : "AGUDOS ", cap); cati(o, v < 64 ? 64 - v : v - 64, cap); } return;
+        case 5: if (v) cati(o, v, cap); else scpy(o, "NADA", cap); return;
+        case 6: scpy(o, MO[v * 3 / 128], cap); return;
+        }
     }
+    if (t == 1 && m == 1 && i == 1) { cati(o, 1 + v * 5 / 127, cap); scat(o, " PALMAS", cap); return; }
+    if (i == 1 && is_synth(t) && m == FGY_TEXTURA && FG_SMP_TEX_N) { scpy(o, raw(FG_SMP_TEX[(unsigned)v * FG_SMP_TEX_N / 128u].name), cap); return; }   /* MUESTRA: su nombre */
     if (t == 3 && m == 0 && i == 1) { scpy(o, v < 60 ? "CAE" : v > 68 ? "SUBE" : "QUIETA", cap); return; }
     cati(o, v, cap);
 }
@@ -1010,7 +1053,8 @@ static void tfmt(fg_box_t *b, const tgt_t *g, int v, char *o, unsigned cap)
         return;
     case TK_GLO2:
         if (g->idx == 0) scpy(o, v ? "AL COMPÁS" : "AL INSTANTE", cap);
-        else if (g->idx < 3) scpy(o, v ? "SÍ" : "NO", cap);
+        else if (g->idx == 1) { static const char *const R[4] = {"NO", "ENTRA", "SALE", "ENTRA Y SALE"}; scpy(o, R[clampi(v, 0, 3)], cap); }
+        else if (g->idx == 2) scpy(o, FG_LANG_NAME[clampi(v, 0, FG_LANGS - 1)], cap);
         else { static const char *const N[4] = {"NO", "ENTRAN", "SALEN", "LAS DOS"}; scpy(o, N[clampi(v, 0, 3)], cap); }
         return;
     case TK_CHAIN:
@@ -1028,6 +1072,16 @@ static void turn(fg_box_t *b, unsigned k, int d)
     tgt_t g;
     { unsigned a = b->kmov[k] + (unsigned)(d < 0 ? -d : d) * 48u; b->kmov[k] = (uint16_t)(a > 256u ? 256u : a); }   /* el visual siente el giro */
     if (!target(b, k, &g)) { show_ov(b, "LIBRE", "–", 0); return; }
+    if ((g.kind == TK_PARAM || g.kind == TK_PLOCK) && g.idx == 1 && is_samp(b, b->sel)) {   /* SAMPLE: de uno en uno, sin huecos */
+        unsigned v = (unsigned)tget(b, &g), w = v;
+        for (int s = d < 0 ? -d : d; s > 0; s--) w = fg_samp_step(w, d > 0 ? 1 : -1);
+        if (w != v) tset(b, &g, (int)w);
+        char val[28];
+        target(b, k, &g);                                 /* (el banco del nuevo) */
+        tfmt(b, &g, (int)w, val, sizeof val);
+        show_ov(b, g.label, val, (int)w * 2);
+        return;
+    }
     if (g.kind == TK_SCL2 && g.idx == 0) {               /* MOVER: un paso por clic, no una posición */
         move_steps(b, d > 0 ? 1 : -1);
         show_ov(b, "MOVER", d > 0 ? "→ UN PASO" : "← UN PASO", 128);
@@ -1059,6 +1113,54 @@ static void turn(fg_box_t *b, unsigned k, int d)
 /* ---- perillas de arriba ---- */
 static void select_track(fg_box_t *b, unsigned t) { b->sel = (uint8_t)t; b->sp = 0; clear_acc(b); show_big(b); mark(b); }
 
+
+/* MUESTRA (bombo y caja hasta la 0.8) -> SAMPLE: el mismo sample, la misma altura y el mismo filtro. PEGADA sostenía
+ * el golpe (bombo hasta ~1.2 s, caja hasta ~1.2 s) y lo empujaba: el sostén pasa a una CAÍDA que tarda lo mismo en bajar
+ * 20 dB, y el empujón y SATURA (más el NIVEL de la caja) al NIVEL, que satura igual.
+ * MUESTRA: TONO MUESTRA CAÍDA FILTRO SATURA ARRANQUE PEGADA NIVEL */
+static unsigned isqrt(unsigned x) { unsigned r = 0; while ((r + 1u) * (r + 1u) <= x) r++; return r; }
+static uint32_t tau_of(unsigned i) { return (uint32_t)((1u << 30) / (uint32_t)((1 << 30) - FG_DECAY[i])); }   /* muestras */
+static void muestra_to_sample(unsigned t, const uint8_t *o, uint8_t *p)
+{
+    unsigned nb = t ? FG_SMP_SNR_N : FG_SMP_KICK_N, k = nb ? o[1] * nb / 128u : 0u;
+    const fg_sample_t *s = nb ? (t ? &FG_SMP_SNR[k] : &FG_SMP_KICK[k]) : 0;
+    unsigned lo = t ? 50u : 30u, d = lo + o[2] * (100u - lo) / 127u;           /* el índice de FG_DECAY de antes */
+    uint32_t hold = t ? o[6] * 400u : o[6] * 17u * 44u, peg = 4096u + o[6] * 4096u * 25u / 10u / 127u;
+    uint32_t drive = (4096u + 290u * o[4]) * peg / 4096u;                       /* Q12 */
+    if (t) drive = drive * (o[7] * o[7] * 2u) / 32768u;                        /* (la caja también tenía su NIVEL) */
+    unsigned st = s && s->len ? o[5] * 10u * 128u / s->len : 0u, c = 127u;
+    if (o[2] < 120u) {
+        uint32_t tau = tau_of(d) + hold * 10u / 23u;
+        for (unsigned i = 30; i <= 110u; i++) if (tau_of(i) >= tau) { c = ((i - 30u) * 127u + 79u) / 80u; break; }
+        if (c > 119u) c = 127u;
+    }
+    p[0] = (uint8_t)(64 + ((int)o[0] - 64) * 12 / 64);
+    p[1] = (uint8_t)((t ? FGSB_CAJAS : FGSB_BOMBOS) + k);
+    p[2] = (uint8_t)(st > 127u ? 127u : st);
+    p[3] = (uint8_t)c;
+    p[4] = (uint8_t)(o[3] >= 127u ? 64u : o[3] * 62u / 126u);
+    p[5] = 0; p[6] = FGSV_GOLPE;
+    unsigned nv = isqrt(drive);
+    p[7] = (uint8_t)(nv > 127u ? 127u : nv);
+}
+static void preset_p(unsigned t, unsigned m, const uint8_t *src, uint8_t *out)
+{
+    if (t < 2u && m == DSAMPLE) muestra_to_sample(t, src, out); else fg_copy(out, src, 8);
+}
+/* un lock o una automatización de MUESTRA: qué perilla de SAMPLE es (255: ninguna) y su valor con el resto del sonido.
+ * Un lock de MUESTRA lockea las perillas de SAMPLE que salen de esa (PEGADA: CAÍDA y NIVEL) */
+static unsigned muestra_idx(unsigned i) { static const uint8_t N[8] = {0, 1, 3, 4, 7, 2, 7, 7}; return i < 8u ? N[i] : i; }
+static void muestra_locks(unsigned t, const uint8_t *base, uint8_t *lk)
+{
+    static const uint8_t DEP[8] = {1u << 0, 1u << 1, 1u << 5 | 1u << 1, 1u << 2 | 1u << 6, 1u << 3, 0, 0, 1u << 4 | 1u << 6 | 1u << 7};
+    uint8_t o[8], p[8];
+    unsigned has = 0;
+    for (unsigned i = 0; i < 8; i++) { o[i] = lk[i] != FG_NONE ? lk[i] : base[i]; if (lk[i] != FG_NONE) has |= 1u << i; }
+    if (!has) return;
+    muestra_to_sample(t, o, p);
+    for (unsigned i = 0; i < 8; i++) lk[i] = has & DEP[i] ? p[i] : FG_NONE;
+}
+
 static unsigned presets_of(fg_box_t *b, unsigned t, const preset_t **fac, unsigned *nfac)
 {
     unsigned m = b->s.model[t];
@@ -1076,7 +1178,7 @@ static const char *preset_at(fg_box_t *b, unsigned t, unsigned i, uint8_t *out)
     if (b->s.has_edited[t] & (1u << m)) { if (i == 0) { fg_copy(out, b->s.edited[t][m], 8); return "EDITADO"; } i--; }
     if (i == 0) { fg_copy(out, DEF_P[t][m], 8); return "INICIAL"; }
     i--;
-    if (i < nfac) { fg_copy(out, fac[i].p, 8); return fac[i].name; }
+    if (i < nfac) { preset_p(t, m, fac[i].p, out); return fac[i].name; }
     i -= nfac;
     for (unsigned k = 0; k < UBN; k++)
         if (UB[k].key == t && UB[k].m == m) { if (i == 0) { fg_copy(out, UB[k].p, 8); return UB[k].name; } i--; }
@@ -1094,27 +1196,52 @@ static uint8_t pack_buf[16384];                           /* (en el FM-1 va a .b
 /* el banco se escribe parado (borrar la flash detiene el código un momento: tocando, se oiría); si no, al parar */
 static void ub_flush(fg_box_t *b)
 {
-    if (!ub_dirty || !b->store_write || b->playing) return;
+    if (!ub_dirty || !b->store_write || b->playing || !px_take_buf(0)) return;
     pack_buf[0] = 0x80u | UB_VER;                         /* [versión][cuántos][sonidos] */
     pack_buf[1] = UBN;
     fg_copy(pack_buf + 2, UB, UBN * sizeof UB[0]);
     if (!b->store_write(FBX_UBANK_SLOT, pack_buf, 2u + UBN * sizeof UB[0])) ub_dirty = 0;
     else { show_ov(b, "SONIDOS", "NO SE GUARDARON", 0); b->retry_ms = b->now + 30000u; }
 }
-static void ub_load(fg_box_t *b)
+/* los ajustes del aparato (el idioma): aparte de los proyectos, se escriben parado */
+static void dev_flush(fg_box_t *b)
 {
-    uint32_t n = 0;
-    UBN = 0;
-    if (!b->store_read || b->store_read(FBX_UBANK_SLOT, pack_buf, sizeof pack_buf, &n) || !n) return;
-    unsigned v1 = !(pack_buf[0] & 0x80u), h = v1 ? 1u : 2u, k = pack_buf[h - 1u];   /* (v1, 0.7: [cuántos][sonidos]) */
-    if (k > FBX_UBANK || h + k * sizeof UB[0] > n) return;
-    fg_copy(UB, pack_buf + h, k * sizeof UB[0]);
+    if (!dev_dirty || !b->store_write || b->playing) return;
+    uint8_t d[2] = {1, fg_lang};                          /* [versión][idioma] */
+    if (!b->store_write(FBX_DEV_SLOT, d, sizeof d)) dev_dirty = 0; else b->retry_ms = b->now + 30000u;
+}
+static void dev_load(fg_box_t *b)
+{
+    uint8_t d[8]; uint32_t n = 0;
+    if (b->store_read && !b->store_read(FBX_DEV_SLOT, d, sizeof d, &n) && n >= 2u && d[0] == 1u && d[1] < FG_LANGS) fg_lang = d[1];
+}
+/* el banco desde un búfer (la flash o la app); 0 = bien */
+static int ub_from(const uint8_t *q, uint32_t n)
+{
+    if (!n) return -1;
+    unsigned v1 = !(q[0] & 0x80u), h = v1 ? 1u : 2u, k = q[h - 1u];   /* (v1, 0.7: [cuántos][sonidos]) */
+    if (k > FBX_UBANK || h + k * sizeof UB[0] > n || (!v1 && (q[0] & 0x7Fu) > UB_VER)) return -1;
+    fg_copy(UB, q + h, k * sizeof UB[0]);
     UBN = (uint8_t)k;
+    for (unsigned i = 0; i < UBN; i++) UB[i].name[sizeof UB[0].name - 1u] = 0;
     if (v1) {                                             /* de 0.7: los sintes cambiaron de número */
         unsigned j = 0;
         for (unsigned i = 0; i < UBN; i++) if (remap_upre_v4(&UB[i])) UB[j++] = UB[i];
         UBN = (uint8_t)j; ub_dirty = 1;
     }
+    if (v1 || (q[0] & 0x7Fu) < 3u) {                      /* hasta la 0.8: MUESTRA pasa a SAMPLE */
+        for (unsigned i = 0; i < UBN; i++)
+            if (UB[i].key < 2u && UB[i].m == DSAMPLE) { uint8_t o[8]; fg_copy(o, UB[i].p, 8); muestra_to_sample(UB[i].key, o, UB[i].p); }
+        ub_dirty = 1;
+    }
+    return 0;
+}
+static void ub_load(fg_box_t *b)
+{
+    uint32_t n = 0;
+    UBN = 0;
+    if (!b->store_read || b->store_read(FBX_UBANK_SLOT, pack_buf, sizeof pack_buf, &n) || !n) return;
+    ub_from(pack_buf, n);
 }
 /* los sonidos que traía un proyecto de antes pasan al banco (sin repetir) */
 static void ub_merge(fg_box_t *b)
@@ -1147,7 +1274,7 @@ static void save_sound(fg_box_t *b)
     for (unsigned n = 1;; n++) {                     /* el primer número libre: MOTOR 1, MOTOR 2… */
         char num[6]; num[0] = 0; cati(num, (int)n, sizeof num);
         unsigned nd = 0; while (num[nd]) nd++;
-        unsigned j = 0, room = sizeof UB[0].name - 2u - nd; const char *mn = MN(b, t);
+        unsigned j = 0, room = sizeof UB[0].name - 2u - nd; const char *mn = MN(b, t) + 1;   /* (sin la marca "\1") */
         while (mn[j] && j < room) { nm[j] = mn[j]; j++; }
         while (j && (mn[j] & 0xC0) == 0x80) j--;     /* (sin partir una letra con acento) */
         while (j && nm[j - 1] == ' ') j--;
@@ -1162,7 +1289,7 @@ static void save_sound(fg_box_t *b)
     fg_copy(u->p, P(b, t), 8);
     b->preset_idx[t][m] = (uint8_t)(preset_count(b, t) - 1u);   /* queda a la vista: el último de la lista */
     ub_dirty = 1; ub_flush(b);
-    show_ov(b, "SONIDO GUARDADO", nm, 256);
+    show_ov(b, "SONIDO GUARDADO", raw(nm), 256);
 }
 
 static void enc_presets(fg_box_t *b, int d)
@@ -1179,7 +1306,7 @@ static void enc_presets(fg_box_t *b, int d)
             for (unsigned i = (unsigned)k; i + 1u < UBN; i++) UB[i] = UB[i + 1];
             UBN--; ub_dirty = 1; ub_flush(b);
             if (b->preset_idx[t][m]) b->preset_idx[t][m]--;
-            show_ov(b, "SONIDO BORRADO", nm, 256);
+            show_ov(b, "SONIDO BORRADO", raw(nm), 256);
             return;
         }
         save_sound(b);
@@ -1204,7 +1331,7 @@ static void enc_presets(fg_box_t *b, int d)
     char lab[44];
     scpy(lab, TN[t], sizeof lab); scat(lab, " · ", sizeof lab); scat(lab, MN(b, t), sizeof lab);
     scat(lab, " · ", sizeof lab); cati(lab, (int)i + 1, sizeof lab); scat(lab, "/", sizeof lab); cati(lab, (int)n, sizeof lab);
-    show_ov(b, lab, name, n > 1 ? (int)(i * 256u / (n - 1u)) : 256);
+    show_ov(b, lab, i == 0 || (i == 1 && (b->s.has_edited[t] >> m & 1u)) ? name : raw(name), n > 1 ? (int)(i * 256u / (n - 1u)) : 256);
     audition(b, -1); mark(b);
 }
 
@@ -1218,10 +1345,12 @@ static void rand_sound(fg_box_t *b)
     uint8_t *p = P(b, t), o[8];
     const preset_t *fac; unsigned nfac;
     presets_of(b, t, &fac, &nfac);
-    const uint8_t *base = nfac ? fac[rr(b, nfac)].p : DEF_P[t][m];
+    uint8_t base[8];
+    if (nfac) preset_p(t, m, fac[rr(b, nfac)].p, base); else fg_copy(base, DEF_P[t][m], 8);
     for (unsigned j = 0; j < 8; j++) o[j] = (uint8_t)clampi(base[j] + (int)rr(b, 41) - 20, 0, 127);
     o[7] = p[7];
     if (is_synth(t)) o[0] = p[0];
+    if (is_samp(b, t)) { o[1] = p[1]; o[6] = p[6]; }        /* SAMPLE: el mismo sample y el mismo MODO */
     for (unsigned j = 0; j < 8; j++) { b->s.p[t][m][j] = o[j]; send_param(b, t, m, j); }
     clear_acc(b);
     char lab[44]; scpy(lab, TN[t], sizeof lab); scat(lab, " · AL AZAR", sizeof lab);
@@ -1393,7 +1522,7 @@ static void move_steps(fg_box_t *b, int d)
 
 /* ---- deshacer / rehacer: el sonido de las pistas y el patrón que se estaba editando ---- */
 #define PACK_MAGIC 0x31424746u                           /* "FGB1" */
-#define PACK_VER 6u                                      /* 6: golpes sueltos en máscaras, GOLPES a mano solo si hay */
+#define PACK_VER 7u                                      /* 7 (0.9): SAMPLE y RELOJ (migrate_v6); 6: golpes sueltos en máscaras, GOLPES a mano solo si hay */
 static uint32_t enc_track(const fg_track_t *tr, uint8_t *buf, uint32_t cap);
 static int dec_track(fg_track_t *tr, const uint8_t *buf, uint32_t len, uint32_t *n, unsigned ver);
 #define SNAP_SOUND(X) X(model) X(p) X(mix) X(mix2) X(fx) X(lfo) X(lfo2) X(azar) X(scl2) X(arp)
@@ -1882,7 +2011,7 @@ void fg_box_tick(fg_box_t *b, uint32_t now)
         }
     /* lo que el audio cambió */
     if (b->a_ext_play) { b->playing = b->a_ext_play == 1; b->a_ext_play = 0; }
-    if (b->a_bpm && b->a_bpm != b->s.bpm && b->s.mclk_in) b->s.bpm = b->a_bpm;
+    if (b->a_bpm && b->a_bpm != b->s.bpm && (b->s.reloj & 1u)) b->s.bpm = b->a_bpm;
     b->s.cur = b->a_cur;
     b->queued = b->a_queued;
     b->chainpos = b->a_chainpos;
@@ -1966,6 +2095,8 @@ unsigned fg_box_mirror(fg_box_t *b, uint8_t *o, int state)
         o[n++] = (uint8_t)(u->perf >> 14) & 127u; o[n++] = (u->perf >> 7) & 127u; o[n++] = u->perf & 127u;
         for (unsigned t = 0; t < 8; t++) { int32_t l = b->level[t] >> 8; o[n++] = (uint8_t)(l > 127 ? 127 : l < 0 ? 0 : l); }
         for (unsigned t = 0; t < 8; t++) for (unsigned i = 0; i < 4; i++) o[n++] = u->mix[t][i] & 127u;
+        for (unsigned t = 0; t < 8; t++) { int s = b->pos[t]; o[n++] = (uint8_t)(b->a_playing && s >= 0 && s < 127 ? s : 127); }   /* 0.9: el paso de cada pista */
+        o[n++] = b->a_playing ? 1u : 0u;
     } else return 0;
     o[n++] = 0xF7;
     return n;
@@ -2083,6 +2214,41 @@ static uint8_t kick_tone_v1(unsigned m, unsigned v)
     unsigned r = m ? (v * 8172u + 237200u) / 10000u : (v * 7877u + 274800u) / 10000u;
     return (uint8_t)(r > 127u ? 127u : r);
 }
+/* v6 -> v7 (0.9): RELOJ en un solo ajuste; MUESTRA pasa a SAMPLE (sus valores, sus locks y su automatización si
+ * es el motor de la pista, su versión EDITADA y sus sonidos); METAL, PERC y los sintes estrenan SAMPLE de fábrica */
+static void migrate_v6(fg_box_t *b)
+{
+    fbx_song_t *s = &b->s;
+    if (s->reloj <= 1u) s->reloj = (uint8_t)(s->reloj | (s->rsv_clk ? 2u : 0u));   /* (arriba de 1: la de fábrica, la v1 no los traía) */
+    s->rsv_clk = 0;
+    for (unsigned t = 0; t < 2u; t++) {
+        uint8_t o[8], e[8];
+        fg_copy(o, s->p[t][DSAMPLE], 8); muestra_to_sample(t, o, s->p[t][DSAMPLE]);
+        if (s->has_edited[t] >> DSAMPLE & 1u) { fg_copy(e, s->edited[t][DSAMPLE], 8); muestra_to_sample(t, e, s->edited[t][DSAMPLE]); }
+        if (s->model[t] != DSAMPLE) continue;
+        for (unsigned p = 0; p < FBX_NP; p++)
+            for (unsigned i = 0; i < FG_SEQ_NS; i++) {
+                fg_step_t *st = &b->Q.pat[p].tr[t].st[i];
+                muestra_locks(t, o, st->lk);
+                for (unsigned a = 0; a < 4u; a += 2u) {
+                    unsigned oi = st->au[a], ni = muestra_idx(oi);
+                    if (oi >= 8u) continue;                        /* (FG_NONE o una de la mezcla) */
+                    uint8_t l[8];
+                    for (unsigned j = 0; j < 8u; j++) l[j] = FG_NONE;
+                    l[oi] = st->au[a + 1u];
+                    muestra_locks(t, o, l);
+                    if (ni < 8u) { st->au[a] = (uint8_t)ni; st->au[a + 1u] = l[ni]; } else st->au[a] = st->au[a + 1u] = FG_NONE;
+                }
+            }
+    }
+    for (unsigned t = 2; t < 8u; t++) {
+        unsigned m = is_synth(t) ? FGY_SAMPLE : DSAMPLE;
+        fg_copy(s->p[t][m], DEF_P[t][m], 8);
+        s->has_edited[t] &= (uint16_t)~(1u << m);
+    }
+    for (unsigned k = 0; k < b->nupre; k++)
+        if (b->upre[k].key < 2u && b->upre[k].m == DSAMPLE) { uint8_t o[8]; fg_copy(o, b->upre[k].p, 8); muestra_to_sample(b->upre[k].key, o, b->upre[k].p); }
+}
 static void migrate_v1(fg_box_t *b)
 {
     fbx_song_t *s = &b->s;
@@ -2119,7 +2285,7 @@ static uint32_t read_old_song(fg_box_t *b, const uint8_t *q0, unsigned ver, unsi
     RD(he, 8);
     for (unsigned t = 0; t < 8; t++) s->has_edited[t] = he[t];
     RD(chain, 32); RD(&nchain, 1);
-    if (ver >= 2) { RD(s->crow, 16); RD(s->crep, 16); RD(&s->chain_on, 1); RD(&s->mclk_in, 1); RD(&s->mclk_out, 1); RD(&s->mnotes, 1); }
+    if (ver >= 2) { RD(s->crow, 16); RD(s->crep, 16); RD(&s->chain_on, 1); RD(&s->reloj, 1); RD(&s->rsv_clk, 1); RD(&s->mnotes, 1); }
     else if (nchain > 1 && nchain <= 32) {                  /* v1: la cadena vieja queda en las filas */
         for (unsigned r = 0; r < nchain && r < 16u; r++) s->crow[r] = chain[r] < FBX_NP ? chain[r] : 255;
         s->chain_on = 1;
@@ -2263,13 +2429,13 @@ int fg_box_unpack(fg_box_t *b, const uint8_t *buf, uint32_t len)
     fg_copy(hdr, buf, sizeof hdr); n = sizeof hdr;
     unsigned ver = hdr[1] & 0xFFu, np = (hdr[1] >> 8) & 0xFFu, ss = hdr[1] >> 16;
     if (hdr[0] != PACK_MAGIC || !np || np > 64u) return -2;
-    if (ver == PACK_VER || ver == 5u || ver == 4u ? (ss != sizeof(fbx_song_t) || np != FBX_NP) :
+    if (ver == PACK_VER || ver == 6u || ver == 5u || ver == 4u ? (ss != sizeof(fbx_song_t) || np != FBX_NP) :
         ver == 3u ? (ss != sizeof(fbx_song_v3_t) || np != 16u) : (ver < 1u || ver > 2u || ss != old_song_size(ver, np))) return -2;
-    if (ver != PACK_VER && n + ss + 1u > len) return -1;   /* (la v6 se revisa por partes) */
+    if (ver < 6u && n + ss + 1u > len) return -1;          /* (la v6 y la v7 se revisan por partes) */
     pause_audio(b);
     song_defaults(b);                                     /* (también vacía los patrones) */
     fg_copy(b->s.p, DEF_P, sizeof DEF_P);
-    if (ver == PACK_VER) {                                /* sin hand[]: va después (ss sigue siendo la canción entera) */
+    if (ver >= 6u) {                                      /* sin hand[]: va después (ss sigue siendo la canción entera) */
         uint32_t a = offsetof(fbx_song_t, hand), z = sizeof b->s - offsetof(fbx_song_t, edited);
         if (n + a + z + 1u > len) { resume_audio(b); return -1; }
         fg_copy(&b->s, buf + n, a); fg_copy(&b->s.edited, buf + n + a, z);
@@ -2292,7 +2458,7 @@ int fg_box_unpack(fg_box_t *b, const uint8_t *buf, uint32_t len)
         s->bpm = o.bpm; s->swing = o.swing; s->scale = o.scale; s->muteq = o.muteq; s->cur = o.cur; s->transp = o.transp;
         fg_copy(s->eu, o.eu, sizeof o.eu); fg_copy(s->has_hand, o.has_hand, 16); fg_copy(s->hand, o.hand, sizeof o.hand);
         fg_copy(s->crow, o.crow, 16); fg_copy(s->crep, o.crep, 16);
-        s->chain_on = o.chain_on; s->mclk_in = o.mclk_in; s->mclk_out = o.mclk_out; s->mnotes = o.mnotes;
+        s->chain_on = o.chain_on; s->reloj = o.mclk_in; s->rsv_clk = o.mclk_out; s->mnotes = o.mnotes;
         fg_copy(s->mix2, o.mix2, 32); for (unsigned t = 0; t < 8; t++) s->mix2[t][1] = 0;   /* (RESO pasó a ser ANCHO) */
         fg_copy(s->scl2, o.scl2, 32); fg_copy(s->lfo2, o.lfo2, 32); fg_copy(s->arp, o.arp, 32); s->arp_on = o.arp_on;
     } else read_old_song(b, buf + n, ver, np);
@@ -2331,6 +2497,7 @@ int fg_box_unpack(fg_box_t *b, const uint8_t *buf, uint32_t len)
         for (unsigned i = 0; i < b->nupre; i++) if (remap_upre_v4(&b->upre[i])) b->upre[k++] = b->upre[i];
         b->nupre = (uint8_t)k;
     }
+    if (ver < 7u) migrate_v6(b);
     ub_merge(b);
     if (b->s.cur >= FBX_NP) b->s.cur = 0;
     b->Q.nchain = 0;
@@ -2348,7 +2515,8 @@ int fg_box_unpack(fg_box_t *b, const uint8_t *buf, uint32_t len)
 static int save_project(fg_box_t *b, unsigned slot)
 {
     if (!b->store_write) { show_ov(b, "GUARDAR", "SIN MEMORIA", 0); return -1; }
-    uint32_t n = fg_box_pack(b, pack_buf, sizeof pack_buf - 16u);
+    if (!px_take_buf(slot < FBX_SLOTS)) return -1;       /* (el autoguardado espera a que la app termine) */
+    uint32_t n = fg_box_pack(b, pack_buf, slot < FBX_SLOTS ? FBX_PROJ_MAX : FBX_AUTO_MAX);
     if (!n) { show_ov(b, "BORRA PASOS O PATRONES", "NO CABE", 0); b->retry_ms = b->now + 30000u; return -1; }
     if (b->store_write(slot, pack_buf, n)) { show_ov(b, "GUARDAR", "FALLÓ", 0); b->retry_ms = b->now + 30000u; return -1; }
     if (slot < FBX_SLOTS) b->slots |= (uint16_t)(1u << slot);
@@ -2359,6 +2527,7 @@ static void load_project(fg_box_t *b, unsigned slot)
 {
     uint32_t n = 0;
     char v[24];
+    px_take_buf(1);
     if (!b->store_read || b->store_read(slot, pack_buf, sizeof pack_buf, &n) || fg_box_unpack(b, pack_buf, n)) { show_ov(b, "ABRIR", "NO SE PUDO", 0); return; }
     if (slot < FBX_SLOTS) { v[0] = 0; scpy(v, "RANURA ", sizeof v); cati(v, (int)slot + 1, sizeof v); show_ov(b, "ABIERTO", v, 256); }
     mark(b);
@@ -2368,7 +2537,9 @@ static void load_project(fg_box_t *b, unsigned slot)
 void fg_box_boot(fg_box_t *b)
 {
     uint32_t n = 0;
+    fg_usr_init(b->usr_io);
     if (b->store_has) for (unsigned i = 0; i < FBX_SLOTS; i++) if (b->store_has(i)) b->slots |= (uint16_t)(1u << i);
+    dev_load(b);
     ub_load(b);
     if (b->store_read && !b->store_read(FBX_SLOTS, pack_buf, sizeof pack_buf, &n)) fg_box_unpack(b, pack_buf, n);
     b->dirty = 0;
@@ -2377,8 +2548,15 @@ void fg_box_boot(fg_box_t *b)
     b->intro = 1; b->intro_t0 = b->now; b->intro_k = 0;
 }
 
+void fg_box_note(fg_box_t *b, const char *label, const char *value)   /* después del arranque, unos segundos */
+{
+    show_ov(b, label, value, 0);
+    b->ov.until = b->now + 2800u + 4000u;
+}
+
 void fg_box_idle(fg_box_t *b)
 {
+    px_tick(b);                                          /* la app: avisos y traslados que se quedaron abiertos */
     /* deshacer: una ráfaga de cambios que lleva 0.7 s quieta queda como un estado */
     if (b->u_dirty && b->now - b->dirty_ms > 700u && !b->down && !b->wdown && !b->bdown) undo_commit(b);
     /* autoguardado: parado, con cambios, y 3 s sin tocar nada */
@@ -2386,4 +2564,7 @@ void fg_box_idle(fg_box_t *b)
     if ((int32_t)(b->now - b->retry_ms) < 0 || !b->store_write) return;
     if (b->dirty && !b->playing && b->now - b->dirty_ms > 3000u && !b->down && !b->wdown && !b->bdown) save_project(b, FBX_SLOTS);
     if (ub_dirty && !b->playing && !b->down && !b->wdown && !b->bdown) ub_flush(b);   /* un sonido guardado tocando: al parar */
+    if (dev_dirty && !b->playing && !b->down && !b->wdown && !b->bdown && b->now - b->dirty_ms > 1000u) dev_flush(b);
 }
+
+#include "fg_box_proto.h"

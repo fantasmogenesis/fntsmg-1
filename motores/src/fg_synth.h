@@ -17,6 +17,8 @@
  *   stab de acorde con su eco de cinta (uno por máquina: el primer sinte en DUB; los demás, sin eco propio).
  * RESONADOR: NOTA MATERIAL CAÍDA ARCO | BRILLO SIMPATÍA MOVIMIENTO NIVEL
  *   seis modos afinados (cuerda, barra, campana, vidrio) excitados por golpe y arco; simpatía que los sostiene.
+ * SAMPLE:    AFINA SAMPLE INICIO CAÍDA | CORTE CRUJIDO MODO NIVEL
+ *   el de las 8 pistas (fg_samp.h); AFINA es la nota: las teclas lo tocan cromático. Dos voces.
  * Parafonía: en CUERDAS, TEXTURA y DRON las teclas sostenidas entran a la misma voz (hasta 4 notas por un filtro
  * y una envolvente): suena a acorde grande y cuesta casi lo de una voz.
  * Polifonía: hasta FGY_VOICES notas por pista (el secuenciador y el teclado se enciman; la nota del teclado o del
@@ -24,9 +26,9 @@
 #pragma once
 #include <stdint.h>
 #include "fg_dsp.h"
-#include "fg_samples.h"
+#include "fg_samp.h"
 
-enum { FGY_SH, FGY_ACIDO, FGY_FM, FGY_CUERDAS, FGY_TEXTURA, FGY_DRON, FGY_DUB, FGY_RESONADOR, FGY_MODELS };
+enum { FGY_SH, FGY_ACIDO, FGY_FM, FGY_CUERDAS, FGY_TEXTURA, FGY_DRON, FGY_DUB, FGY_RESONADOR, FGY_SAMPLE, FGY_MODELS };
 #define FGY_GRAINS 8
 #define FGY_VOICES 4
 #define FGY_CHO 256                          /* el coro de CUERDAS y DRON: 5.8 ms de línea por pista */
@@ -57,6 +59,7 @@ typedef struct {
     union {                              /* (una voz toca un solo modelo: comparten lugar) */
         fg_smpv_t hd[3];                 /* TEXTURA: una cabeza por nota */
         struct { int32_t rz[6][2], rc[6][2]; };   /* RESONADOR: estado y coeficientes de sus modos */
+        fg_sampv_t smp;                  /* SAMPLE */
     };
 } fgy_voice_t;
 #define FGY_ECO 8192                         /* el eco de DUB: 0.74 s a 11 kHz, 8 bits (sucio a propósito) */
