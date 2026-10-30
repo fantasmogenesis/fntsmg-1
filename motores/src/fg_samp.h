@@ -6,7 +6,7 @@
  *   INICIO: desde dónde. CAÍDA: lo acorta (127 = entero). CORTE: abajo de 64 quita agudos, arriba quita graves.
  *   CRUJIDO: menos bits y menos muestras. MODO: GOLPE, LAZO (repite; en los sintes, mientras se sostiene),
  *   REVERSA. NIVEL: el volumen, que satura suave arriba de ~64.
- * La reversa decodifica un bloque de 64 muestras a la vez y lo lee al revés (128 bytes por voz). */
+ * Se decodifica un bloque de 64 muestras a la vez (128 bytes por voz); la reversa lo lee al revés. */
 #pragma once
 #include <stdint.h>
 #include "fg_samples.h"
@@ -17,14 +17,13 @@ enum { FGSB_BOMBOS = 0, FGSB_CAJAS = 24, FGSB_TEXTURAS = 48, FGSB_TUYOS = 96, FG
 #define FGS_USR 32                           /* samples del usuario (TUYOS) */
 
 typedef struct {
-    uint8_t on, mode, rel, crush_n, crush_k;
+    uint8_t on, mode, rel, crush_n, crush_k, lp, seg;
     const fg_sample_t *s;
-    fg_sample_t ls;                          /* el sample con el lazo que pide MODO */
-    fg_smpv_t r;                             /* hacia adelante */
-    int16_t buf[64], after;                  /* reversa: el bloque y la primera muestra del siguiente */
-    int32_t blk, rpos;
-    uint32_t rfrac, step;
-    int32_t amp, kd, kill, att, att_inc;     /* Q30; la entrada (sin clic al empezar a la mitad) Q15 */
+    int16_t buf[64], after, loopv;           /* el bloque que suena (64 muestras), la siguiente, y la del principio del lazo */
+    int32_t blk, pos;
+    uint32_t frac, step, lps, lpe;           /* lazo: desde lps hasta lpe */
+    int32_t amp, kd, kill, att;              /* Q30; la entrada (sin clic al empezar a la mitad) Q15 */
+    int32_t m, dm;                           /* ganancia de esta muestra (envolvente × NIVEL, Q13) y su paso */
     int32_t g, y0, y1, hp;                   /* CORTE: dos polos; hp = 1 quita graves */
     int32_t gain, crush_y, crush_m;          /* NIVEL Q12; CRUJIDO: muestra sostenida y máscara de bits */
 } fg_sampv_t;

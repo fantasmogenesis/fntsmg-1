@@ -66,3 +66,9 @@ void fg_smp_block(const fg_sample_t *s, uint32_t blk, int16_t *out)
     v.s = s;
     for (uint32_t k = 0; k < 64u; k++) out[k] = (int16_t)dec1(&v, blk * 64u + k);
 }
+int16_t fg_smp_first(const fg_sample_t *s, uint32_t blk)   /* la primera muestra de un bloque */
+{
+    fg_smpv_t v;
+    v.s = s;
+    return (int16_t)dec1(&v, blk * 64u);
+}

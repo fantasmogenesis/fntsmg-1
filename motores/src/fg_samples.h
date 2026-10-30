@@ -27,3 +27,4 @@ void fg_smpv_start(fg_smpv_t *v, const fg_sample_t *s, uint32_t pos);
 /* la siguiente muestra (Q15) avanzando step (Q16: 65536 = la tasa del sample a 44.1 kHz) */
 int32_t fg_smpv_next(fg_smpv_t *v, uint32_t step);
 void fg_smp_block(const fg_sample_t *s, uint32_t blk, int16_t *out);
+int16_t fg_smp_first(const fg_sample_t *s, uint32_t blk);
