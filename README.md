@@ -2,12 +2,15 @@
 
 Firmware de groovebox para el **M-VAVE FM-1**, de [fantasmogenesis](https://fantasmogenesis.art). Corre sobre [Felucca](https://github.com/hugelton/Felucca) de Hügelton Instruments.
 
-- 8 pistas: bombo, caja, metal, percusión y 4 sintes, con 18 motores propios (SH, ácido, FM, cuerdas, textura, dron, dub, resonador…).
+- 8 pistas: bombo, caja, metal, percusión y 4 sintes, con 17 motores propios (SH, ácido, FM, cuerdas, textura, dron, dub, resonador…) y SAMPLE en las 8.
+- La pantalla en español, inglés o portugués.
 - Secuenciador de 32 pasos por pista, 16 patrones, locks de sonido y de mezcla, condiciones, probabilidad, ratchet y micro.
 - Cadena de patrones, 16 efectos en vivo, arpegiador, azar de sonido y de patrón, deshacer.
 - Audio USB de 8 pistas (44.1 kHz) y MIDI por USB y TRS.
 
 Guía rápida: <https://fantasmogenesis.art/fm1/guia>
+
+Estación (el FM-1 en la computadora, Chrome o Edge): <https://fantasmogenesis.art/fm1/estacion/>
 
 ## Instalar
 
@@ -21,6 +24,7 @@ Instalar firmware de terceros es bajo tu propio riesgo. Respalda tus proyectos a
 - `firmware/`: cómo se arma la imagen para el FM-1 (`build.sh`) y el simulador en la Mac (`host/`), que saca capturas y WAV.
 - `vendor/Felucca/`: submódulo con el fork de Felucca (rama `groovebox`): arranque, USB, flash, pantalla y teclado.
 - `caja/`, `espejo/`: la caja y los visuales en el navegador (WebAssembly).
+- `estacion/`: la Estación, la app web que habla con el FM-1 por SysEx (`PROTOCOLO.md`): espejo, secuencia, sonido, mezcla, samples, proyectos y grabar. Necesita `espejo/espejo.wasm` junto a ella.
 
 ## Compilar
 
