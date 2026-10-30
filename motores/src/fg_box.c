@@ -1169,7 +1169,15 @@ static unsigned presets_of(fg_box_t *b, unsigned t, const preset_t **fac, unsign
     for (unsigned i = 0; i < UBN; i++) if (UB[i].key == t && UB[i].m == m) nu++;
     return nu;
 }
-/* la lista de PRESETS: [EDITADO], INICIAL, de fábrica, guardados. Devuelve el nombre y los valores del i-ésimo */
+/* SAMPLE: cada sample (de fábrica y TUYOS) también es un preset: el sonido de ahora con ese sample en la perilla SAMPLE,
+ * así se recorren con PRESET sin perder lo que ya se movió (la perilla SAMPLE sigue en EDIT, para el LFO) */
+static unsigned samples_n(const fg_box_t *b, unsigned t)
+{
+    unsigned n = 0;
+    if (is_samp(b, t)) for (unsigned v = 0; v < FGSB_END; v++) n += fg_samp_valid(v);
+    return n;
+}
+/* la lista de PRESETS: [EDITADO], INICIAL, de fábrica, [samples], guardados. Devuelve el nombre y los valores del i-ésimo */
 static const char *preset_at(fg_box_t *b, unsigned t, unsigned i, uint8_t *out)
 {
     unsigned m = b->s.model[t];
@@ -1180,6 +1188,12 @@ static const char *preset_at(fg_box_t *b, unsigned t, unsigned i, uint8_t *out)
     i--;
     if (i < nfac) { preset_p(t, m, fac[i].p, out); return fac[i].name; }
     i -= nfac;
+    if (is_samp(b, t))
+        for (unsigned v = 0; v < FGSB_END; v++) {
+            if (!fg_samp_valid(v)) continue;
+            if (i == 0) { fg_copy(out, P(b, t), 8); out[1] = (uint8_t)v; return fg_samp_at(v)->name; }
+            i--;
+        }
     for (unsigned k = 0; k < UBN; k++)
         if (UB[k].key == t && UB[k].m == m) { if (i == 0) { fg_copy(out, UB[k].p, 8); return UB[k].name; } i--; }
     return "";
@@ -1187,7 +1201,7 @@ static const char *preset_at(fg_box_t *b, unsigned t, unsigned i, uint8_t *out)
 static unsigned preset_count(fg_box_t *b, unsigned t)
 {
     const preset_t *fac; unsigned nfac, nu = presets_of(b, t, &fac, &nfac);
-    return ((b->s.has_edited[t] >> b->s.model[t]) & 1u) + 1u + nfac + nu;
+    return ((b->s.has_edited[t] >> b->s.model[t]) & 1u) + 1u + nfac + samples_n(b, t) + nu;
 }
 
 static int same(const void *a, const void *c, unsigned n) { const uint8_t *x = a, *y = c; while (n--) if (*x++ != *y++) return 0; return 1; }

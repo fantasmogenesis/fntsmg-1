@@ -2,7 +2,7 @@
 
 Contrato entre el firmware FNTSMG-1 y la app companion (`estacion/`). La app solo habla con el aparato por lo que dice este documento. Si necesita algo que aquí no está, se pide un cambio a este documento antes de programarlo.
 
-- **Versión del protocolo:** 1, revisión 3 (29-oct-2026). Es la que implementa el firmware; los cambios contra la revisión 1 están en el Historial, al final.
+- **Versión del protocolo:** 1, revisión 4 (30-oct-2026). Es la que implementa el firmware; los cambios contra la revisión 1 están en el Historial, al final.
 - **Firmware que lo implementa:** 0.9, en la rama `v0.9` (sin instalar todavía). El 0.8.7 de la beta solo tiene el espejo (sección 9).
 - **Dueño:** la sesión del firmware (`motores/src/fg_box.c`, `vendor/Felucca/firmware/src/fgbox.c`). La sesión de la companion no toca firmware.
 - **Cuándo cambia el número de versión:** un comando nuevo no lo cambia, porque la app lo descubre con `INFO`. Cambiar el significado de un comando que ya existe sí lo sube.
@@ -198,7 +198,7 @@ Pregunta: `tipo` (`u7`) y luego argumentos.
 | 1 modelos | pista | cuántos (1 byte) y sus nombres |
 | 2 perillas | pista, página, subpágina | 4 grupos: nombre, mínimo y máximo (`int16` little endian cada uno). Nombre vacío: esa perilla no hace nada ahí (mínimo y máximo en 0) |
 | 3 valores | pista, página, subpágina, perilla, valor `s14` | el texto que mostraría la pantalla para ese valor («1/16», «MENOR», «−3 ST») |
-| 4 presets | pista, modelo | cuántos (1 byte) y sus nombres, en el orden de la perilla PRESET: EDITADO (si hay), INICIAL, los de fábrica, los del banco |
+| 4 presets | pista, modelo | cuántos (1 byte) y sus nombres, en el orden de la perilla PRESET: EDITADO (si hay), INICIAL, los de fábrica, en SAMPLE todos los samples (de fábrica y TUYOS, en orden de lugar), los del banco |
 | 5 samples | banco (0 BOMBOS, 1 CAJAS, 2 TEXTURAS, 3 TUYOS) | cuántos (1 byte) y, por sample, su lugar (1 byte: el valor de la perilla SAMPLE) y su nombre |
 | 6 listas | 0 condiciones, 1 escalas, 2 formas de LFO, 3 destinos de LFO (+ pista), 4 efectos de performance | cuántos (1 byte) y sus nombres |
 
@@ -690,6 +690,7 @@ Con ranuras de 8 KB caben unos 5 500 bytes de pasos por encima del proyecto vac�
   - Traslados: comparten memoria con el guardado del aparato (el autoguardado espera; guardar o abrir en el aparato cancela el traslado).
   - TUYOS: sectores seguidos, `NO_CABE` con el hueco seguido más grande, revisión del formato al abrir, índice como registro.
   - Mapa de la flash decidido (sección 10) y la mudanza desde 0.8.
+- 1, revisión 4 (30-oct-2026), a pedido de Cris: en SAMPLE, la perilla PRESET también recorre los samples. Cada uno es el sonido de ahora con ese sample en la perilla SAMPLE. `META` 4 los lista después de los de fábrica; `PERILLA` perilla 5 los elige por su número en esa lista.
 - 1, revisión 3 (29-oct-2026), a pedido de la companion:
   - `ESTADO` del espejo suma al final el paso de cada pista y el byte «tocando».
   - Textos dentro de una lista: se quedan como en la revisión 2. `META` responde un solo bloque empacado con los textos terminados en 0 adentro (se desempaca entero y luego se parte por los 0). En `LISTA` de samples cada nombre trae su largo (`u7`) antes y va empacado solo, sin 0. La companion había implementado nombres empacados por separado con su 0 al final; la regla de aquí es la que vale.

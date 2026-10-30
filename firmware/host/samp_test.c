@@ -61,6 +61,15 @@ int main(void)
         while (acc >= FG_BLOCK) { acc -= FG_BLOCK; fg_box_audio(&B, out, FG_BLOCK); for (int t = 0; t < 8; t++) for (int i = 0; i < FG_BLOCK; i++) if (fabs(B.trk[t][i]) > pk[t]) pk[t] = fabs(B.trk[t][i]); }
         fg_box_idle(&B);
     }
+    {   /* PRESET en SAMPLE recorre también los samples */
+        unsigned t0 = B.sel; while (B.sel != 4) fg_box_enc(&B, FE_SELECT, 1);
+        printf("PRESET en el sinte A (SAMPLE):");
+        int found = 0;
+        for (int k = 0; k < 40; k++) { fg_box_enc(&B, FE_PRESET, 1); printf(" %s", B.ov.value[0] == 1 ? B.ov.value + 1 : B.ov.value); if (!strcmp(B.ov.value + 1, "CINTA")) found = 1; }
+        printf("\n"); if (!found) { printf("MAL: no salió CINTA\n"); bad++; }
+        printf("SAMPLE quedó en %d\n", B.s.p[4][FGY_SAMPLE][1]);
+        (void)t0;
+    }
     for (int t = 0; t < 8; t++) { printf("pista %d pico %.0f%s\n", t + 1, pk[t], pk[t] > 1000 ? "" : "  MAL"); bad += pk[t] <= 1000; }
     printf(bad ? "FALLAS: %d\n" : "todo bien\n", bad);
     return bad;
