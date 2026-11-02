@@ -2,8 +2,8 @@
 
 Contrato entre el firmware FNTSMG-1 y la app companion (`estacion/`). La app solo habla con el aparato por lo que dice este documento. Si necesita algo que aquí no está, se pide un cambio a este documento antes de programarlo.
 
-- **Versión del protocolo:** 1, revisión 6 (30-oct-2026). Es la que implementa el firmware; los cambios contra la revisión 1 están en el Historial, al final.
-- **Firmware que lo implementa:** 0.9, en la rama `v0.9` (sin instalar todavía). El 0.8.7 de la beta solo tiene el espejo (sección 9).
+- **Versión del protocolo:** 1, revisión 8 (2-nov-2026). Es la que implementa el firmware; los cambios contra la revisión 1 están en el Historial, al final.
+- **Firmware que lo implementa:** 0.10 (formato de proyecto 9; la revisión 7 era el formato 8). La 0.9 implementa hasta la revisión 6. El 0.8.7 de la beta solo tiene el espejo (sección 9).
 - **Dueño:** la sesión del firmware (`motores/src/fg_box.c`, `vendor/Felucca/firmware/src/fgbox.c`). La sesión de la companion no toca firmware.
 - **Cuándo cambia el número de versión:** un comando nuevo no lo cambia, porque la app lo descubre con `INFO`. Cambiar el significado de un comando que ya existe sí lo sube.
 
@@ -127,7 +127,7 @@ Respuesta:
 | Campo | Tipo | Hoy |
 |---|---|---|
 | protocolo | `u7` | 1 |
-| formato del proyecto | `u7` | 7 |
+| formato del proyecto | `u7` | 8 (0.10); 7 en 0.9 |
 | patrones | `u7` | 16 |
 | pistas | `u7` | 8 |
 | pasos por pista | `u7` | 32 |
@@ -171,7 +171,7 @@ Máscara `qué`:
 
 | bit | Cambió |
 |---|---|
-| 0 | perillas de sonido, mezcla, LFO, ARP, AZAR o modelos |
+| 0 | perillas de sonido, mezcla, LFO, ARP, AZAR o modelos. Desde la 0.10 el sonido es de cada patrón: cambiar de patrón también prende este bit |
 | 1 | pasos o largo de pista |
 | 2 | patrón que suena, cola, cadena, mutes, solos, transporte |
 | 3 | el proyecto entero (cargar, nuevo, deshacer): hay que volver a leerlo |
@@ -197,7 +197,7 @@ Pregunta: `tipo` (`u7`) y luego argumentos.
 | tipo | Argumentos (`u7` cada uno, salvo el valor) | Respuesta |
 |---|---|---|
 | 0 pistas | | 8 textos |
-| 1 modelos | pista | cuántos (1 byte) y sus nombres |
+| 1 modelos | pista | cuántos (1 byte) y sus nombres, por lugar (rev. 8: los que salieron van con nombre vacío; ver 6.2, v9) |
 | 2 perillas | pista, página, subpágina | 4 grupos: nombre, mínimo y máximo (`int16` little endian cada uno). Nombre vacío: esa perilla no hace nada ahí (mínimo y máximo en 0) |
 | 3 valores | pista, página, subpágina, perilla, valor `s14` | el texto que mostraría la pantalla para ese valor («1/16», «MENOR», «−3 ST») |
 | 4 presets | pista, modelo | cuántos (1 byte) y sus nombres, en el orden de la perilla PRESET: EDITADO (si hay), INICIAL, los de fábrica, en SAMPLE todos los samples (de fábrica y TUYOS, en orden de lugar), los del banco |
@@ -320,7 +320,13 @@ Qué hay en cada página: lo da `META` tipo 2. Hoy:
 | LFO | DESTINO, VELOCIDAD, PROFUNDIDAD, FORMA | lo mismo del LFO 2 |
 | GLO (global) | TEMPO, SWING, RAÍZ, ESCALA | MUTES, RELOJ, IDIOMA, NOTAS Y CC (0.9) |
 | CADENA | PATRÓN, VECES, (nada), CADENA | |
-| ARP (sintes) | MODO, VELOCIDAD, OCTAVAS, SOSTENER | |
+| ARP (sintes) | MODO, VELOCIDAD, OCTAVAS, SOSTENER | LARGO, REPETIR, PROBABILIDAD, ACENTO (0.10) |
+
+Desde la 0.10 (revisión 7):
+
+- **El sonido es de cada patrón.** EDIT (las 8 perillas y el modelo), ENV (las dos páginas), LFO (los dos), SCL pág. 2 (TRANSPONER, HUMANO, DENSIDAD), AZAR y ARP (las dos páginas) son del patrón que se ve, que es el que suena. `PERILLA` cambia el de ese patrón. Al cambiar de patrón cambian todos, en el primer paso del patrón nuevo, y `CAMBIO` avisa con el bit 0. FX, GLO, la cadena y los silencios siguen siendo de todo el proyecto.
+- **ARP MODO** va de 0 a 5: 0 es NO (el arpegiador apagado) y 1 a 5 son ARRIBA, ABAJO, SUBE Y BAJA, AL AZAR y COMO TOCAS. Prender el arpegiador es poner MODO en 1 o más; ya no hay botón aparte. En el proyecto sigue igual: `arp[t][0]` guarda el modo 0..4 y `arp_on` el bit.
+- **ARP subpágina 1:** LARGO 0..127 (64 = como siempre; abajo más corto, arriba más largo), REPETIR 0..3 (cada nota 1 a 4 veces), PROBABILIDAD 0..100 (de que suene cada nota), ACENTO 0..3 (no, o la primera de cada 2, 3 o 4 notas más fuerte).
 
 SOSTENER (página 7, perilla 3, 0 o 1, por pista) vale también con el arpegiador apagado: las notas que se sueltan siguen sonando hasta que se toca otra nota o acorde (un pad), y apagarlo las calla. Es el HOLD de la app. Lo grabado con REC suena hasta el siguiente golpe de la pista, así que una nota sostenida se graba igual.
 
@@ -421,17 +427,19 @@ Es exactamente lo que el aparato guarda en una ranura, sin la cabecera de la ran
 | Bytes | Qué |
 |---|---|
 | 0–3 | `46 47 42 31` («FGB1») |
-| 4 | versión del formato (6 en 0.8.6 y 0.8.7; 7 en 0.9) |
+| 4 | versión del formato (6 en 0.8.6 y 0.8.7; 7 en 0.9; 8 en la primera 0.10; **9 en la 0.10 con los motores nuevos**) |
 | 5 | patrones (16) |
-| 6–7 | `sizeof` de la canción (6052 en v6) |
+| 6–7 | `sizeof` de la canción (6052 en v6 y v7; 6084 en v8; **6724 en v9**) |
 
-El aparato abre las versiones 1 a 7. La app solo necesita entender la 7: si lee una ranura vieja, se la pide al aparato como objeto 2 y la recibe tal como está guardada. Si la quiere en v7, la carga (objeto 0, escribir) y la vuelve a leer.
+El aparato abre las versiones 1 a 9. La app solo necesita entender la 9 (y, si quiere, la 8): si lee una ranura vieja, se la pide al aparato como objeto 2 y la recibe tal como está guardada. Si la quiere en v8, la carga (objeto 0, escribir) y la vuelve a leer. La 0.9 no abre la v8.
 
 ### 6.2 La canción
 
-Así está en v6. La v7 cambia lo marcado.
+Así está en v6. La v7 y la v8 cambian lo marcado.
 
-Primero van los bytes 0 a 1069 de la tabla. Después, los bytes 5166 a 6051.
+Primero van los bytes 0 a 1069 de la tabla. Después, los bytes 5166 a 6051 (v8: 5166 a 6083).
+
+En v8 la canción trae el sonido del patrón `cur` (el que se veía al guardar). Las perillas `p[t][m]` de los modelos que ese patrón no usa son de todo el proyecto: son las que aparecen al cambiar de modelo. El sonido de cada patrón va al final (sección 6.5).
 
 | Desde | Bytes | Campo | Qué es |
 |---|---|---|---|
@@ -463,7 +471,43 @@ Primero van los bytes 0 a 1069 de la tabla. Después, los bytes 5166 a 6051.
 | 5986 | 32 | `lfo2[8][4]` | el LFO 2 |
 | 6018 | 32 | `arp[8][4]` | MODO, VELOCIDAD, OCTAVAS, SOSTENER |
 | 6050 | 1 | `arp_on` | bit `t`: el ARP de la pista `t` prendido |
-| 6051 | 1 | — | relleno |
+| 6051 | 1 | — | v6 y v7: relleno |
+| 6051 | 32 | `arp2[8][4]` | **v8:** ARP pág. 2: LARGO (64 = como siempre), REPETIR, PROBABILIDAD, ACENTO |
+| 6083 | 1 | — | v8: relleno |
+
+**v9: 16 motores por pista.** La canción es la misma con `p` y `edited` de `[8][16][8]` (1024 bytes cada uno) en vez de `[8][11][8]`: todo lo que va después de `p` se recorre 320 bytes, y lo que va después de `edited`, 640. Viajan los bytes 0 a 1389 y luego 5486 a 6723. Los campos en v9:
+
+| Desde | Bytes | Campo |
+|---|---|---|
+| 0 | 8 | `model[8]` |
+| 8 | 1024 | `p[8][16][8]` |
+| 1032 | 32 | `mix[8][4]` |
+| 1064 | 8 | `fx[8]` |
+| 1072 | 32 | `lfo[8][4]` |
+| 1104 | 8 | `azar[8]` |
+| 1112 | 6 | `bpm`, `swing`, `scale`, `muteq`, `cur`, `transp` |
+| 1118 | 256 | `eu[16][8][2]` |
+| 1374 | 16 | `has_hand[16]` |
+| (1390) | — | `hand` (va en 6.4) |
+| 5486 | 1024 | `edited[8][16][8]` |
+| 6510 | 16 | `has_edited[8]` |
+| 6526 | 36 | `crow`, `crep`, `chain_on`, `reloj`, `rsv_clk`, `mnotes` |
+| 6562 | 128 | `mix2`, `scl2`, `lfo2`, `arp` (32 cada uno) |
+| 6690 | 1 | `arp_on` |
+| 6691 | 32 | `arp2[8][4]` |
+| 6723 | 1 | relleno |
+
+**v9, motores.** El índice de `model` es el lugar del motor en la pista, que no se mueve entre versiones: los de siempre siguen en el mismo número y los nuevos van después. Los que salieron conservan su número, pero el aparato ya no los elige: al abrir un proyecto los cambia por su reemplazo.
+
+| Pista | Lugares (en v9) | Orden de ALGO | Salieron (reemplazo) |
+|---|---|---|---|
+| BOMBO | 0 BARRIDO, 1 MEMBRANA, 2 SAMPLE, 3 IMPACTO | 0, 3, 1, 2 | — |
+| CAJA | 0 CAJA, 1 APLAUSO, 2 SAMPLE, 3 CAJA 909, 4 PALMAS | 0, 3, 4, 2 | 1 APLAUSO (→ 4) |
+| METAL | 0 GRANIZO, 1 PLACA, 2 SAMPLE, 3 METÁLICO | 0, 3, 1, 2 | — |
+| PERC | 0 GOTA, 1 CHATARRA, 2 SAMPLE, 3 PARCHE, 4 PLACA | 0, 1, 3, 4, 2 | — |
+| SINTES | 0 SH, 1 ÁCIDO, 2 FM, 3 CUERDAS, 4 TEXTURA, 5 DRON, 6 DUB, 7 RESONADOR, 8 SAMPLE, 9 CUATRO, 10 PLIEGUE, 11 TABLA, 12 ÓXIDO, 13 ENJAMBRE, 14 FASE, 15 ÓRGANO | 0, 1, 2, 9, 13, 14, 10, 11, 12, 15, 5, 6, 7, 8 | 3 CUERDAS y 4 TEXTURA (→ 11) |
+
+Las perillas de los motores nuevos (`META` tipo 2) y sus nombres (`META` tipo 1) salen del aparato; los motores nuevos tocan una nota a la vez. El banco TEXTURAS de SAMPLE quedó vacío (sus lugares, 48 a 95, dicen «NO HAY»); TUYOS no se movió.
 
 **v7, modelos.** MUESTRA desaparece y se suma SAMPLE:
 
@@ -536,16 +580,44 @@ Después de la canción, y antes de las pistas, van:
 1. Por cada bit prendido en `has_hand`, en orden de patrón y de pista: 32 bytes. Son los pasos que la persona dibujó con GOLPES en 0.
 2. `nupre` (1 byte) y `nupre × 21` bytes de sonidos guardados dentro del proyecto. Es formato de antes de la 0.7: al abrir, el aparato los pasa al banco. La app escribe `nupre = 0`.
 
-### 6.5 Cuánto pesa
+### 6.5 El sonido de cada patrón (v8)
+
+Después de las 128 pistas, al final:
+
+1. `kit_own` (2 bytes, little endian): bit `p` = el patrón `p` tiene sonido propio. Un patrón vacío sin sonido propio toma el del que suena cuando se elige.
+2. 16 registros, uno por patrón en orden. Cada uno dice el sonido del patrón contra el del registro anterior; el del patrón 0, contra el que trae la canción. El primer byte dice cómo:
+   - `0`: igual al anterior (1 byte en total).
+   - `1`: un mapa de 35 bytes (bit `i` = cambia el byte `i` del sonido) y, en orden, los bytes que cambian.
+   - `2`: el sonido entero (273 bytes).
+
+El sonido de un patrón (273 bytes):
+
+| Desde | Bytes | Campo | Qué es |
+|---|---|---|---|
+| 0 | 8 | `model[8]` | el modelo de cada pista |
+| 8 | 64 | `kp[8][8]` | las 8 perillas del modelo de cada pista |
+| 72 | 32 | `mix[8][4]` | ENV pág. 1 |
+| 104 | 32 | `mix2[8][4]` | ENV pág. 2 |
+| 136 | 32 | `lfo[8][4]` | LFO 1 |
+| 168 | 32 | `lfo2[8][4]` | LFO 2 |
+| 200 | 32 | `scl2[8][4]` | SCL pág. 2 |
+| 232 | 8 | `azar[8]` | AZAR |
+| 240 | 16 | `arp[4][4]` | ARP pág. 1 de los sintes (pistas 4..7) |
+| 256 | 16 | `arp2[4][4]` | ARP pág. 2 de los sintes |
+| 272 | 1 | `arp_on` | bit `t`: el ARP de la pista `t` prendido (solo 4..7) |
+
+Un proyecto de la 0.9 (v7 o antes) se abre con su único sonido en los 16 patrones, y los patrones con pasos quedan con sonido propio.
+
+### 6.6 Cuánto pesa
 
 | Proyecto | Bytes |
 |---|---|
-| vacío | 2 650 |
+| vacío | 2 650 (v8: 2 668, con los 16 patrones con el mismo sonido) |
 | real típico (respaldos de Cris) | 3 100 |
 | 16 patrones × 8 pistas × 32 golpes | 3 655 |
 | peor caso (todos los pasos con todo) | ≈ 130 000: no cabe en ninguna ranura |
 
-Un paso con 4 locks ocupa 9 bytes. Lo que no cabe en la ranura responde `NO_CABE`, igual que SAVE en el aparato («NO CABE»).
+Un paso con 4 locks ocupa 9 bytes. En v8, cada patrón con un sonido distinto del anterior suma de 36 a 274 bytes; en el peor caso (16 sonidos que no se parecen en nada) un proyecto real pesa unos 7 500 bytes y cabe en la ranura. Lo que no cabe en la ranura responde `NO_CABE`, igual que SAVE en el aparato («NO CABE»).
 
 ---
 
@@ -694,6 +766,8 @@ Con ranuras de 8 KB caben unos 5 500 bytes de pasos por encima del proyecto vac�
   - Traslados: comparten memoria con el guardado del aparato (el autoguardado espera; guardar o abrir en el aparato cancela el traslado).
   - TUYOS: sectores seguidos, `NO_CABE` con el hueco seguido más grande, revisión del formato al abrir, índice como registro.
   - Mapa de la flash decidido (sección 10) y la mudanza desde 0.8.
+- 1, revisión 8 (2-nov-2026), firmware 0.10 con los motores nuevos: formato 9 (16 motores por pista; tabla en 6.2), `META` tipo 1 por lugar con los que salieron vacíos, `PERILLA` de ALGO acepta el lugar y cambia uno que salió por su reemplazo. El banco TEXTURAS quedó vacío.
+- 1, revisión 7 (1-nov-2026), firmware 0.10, a pedido de Cris: el sonido es de cada patrón (formato 8, sección 6.5); `PERILLA` cambia el del patrón que suena y cambiar de patrón avisa con `CAMBIO` bit 0. ARP: MODO 0 = NO (prende y apaga el arpegiador) y subpágina 1 con LARGO, REPETIR, PROBABILIDAD y ACENTO (`arp2`, al final de la canción).
 - 1, revisión 6 (30-oct-2026), a pedido de Cris: SOSTENER sostiene notas también sin arpegiador (el HOLD). No hay comando nuevo: es `PERILLA` página 7 perilla 3, y avisa con `CAMBIO` bit 0.
 - 1, revisión 5 (30-oct-2026): el aviso `CAMBIO` trae el byte de estado (0) después del `id` 0, igual que una respuesta. El firmware siempre lo mandó así; el documento no lo decía.
 - 1, revisión 4 (30-oct-2026), a pedido de Cris: en SAMPLE, la perilla PRESET también recorre los samples. Cada uno es el sonido de ahora con ese sample en la perilla SAMPLE. `META` 4 los lista después de los de fábrica; `PERILLA` perilla 5 los elige por su número en esa lista.

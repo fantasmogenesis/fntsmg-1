@@ -141,7 +141,7 @@ static int px_view(fg_box_t *b, px_view_t *sv, unsigned t, unsigned pg, unsigned
     if (pg > 7u || sub > 1u || (pg == 6u ? t >= 16u : t >= 8u)) return 0;
     b->nhw = 0; b->down = 0; b->bdown = 0; b->wdown = 0;
     if (pg == 6u) { b->crow_cur = (uint8_t)t; b->page = PG_CHAIN; b->pn = 0; }
-    else if (pg == 7u) { b->sel = (uint8_t)t; b->down = 1u << FB_ARP; }
+    else if (pg == 7u) { b->sel = (uint8_t)t; b->page = PG_ARP; b->pn = (uint8_t)sub; }
     else { b->sel = (uint8_t)t; b->page = PX_PAGE[pg]; b->pn = (uint8_t)sub; }
     return 1;
 }
@@ -183,8 +183,8 @@ static void px_meta(fg_box_t *b, unsigned id)
     case 0: for (unsigned t = 0; t < 8u; t++) n += put_text(o + n, sizeof o - n, TN[t]); break;
     case 1:
         if (a >= 8u) { head(PX_META, id, PX_FUERA); return; }
-        o[n++] = NMODELS[a];
-        for (unsigned m = 0; m < NMODELS[a]; m++) n += put_text(o + n, sizeof o - n, is_synth(a) ? YNAME[m] : MNAME[a][m]);
+        o[n++] = NSTORE[a];                              /* (rev. 8: por lugar; los que salieron van vacíos: no se eligen) */
+        for (unsigned m = 0; m < NSTORE[a]; m++) n += put_text(o + n, sizeof o - n, gone(a, m) != 255u ? "" : fbx_model_name(a, m));
         break;
     case 2: case 3: {
         px_view_t sv;
@@ -201,7 +201,7 @@ static void px_meta(fg_box_t *b, unsigned id)
         if (ty == 3u && k >= 4u) { head(PX_META, id, PX_FUERA); return; }
         break; }
     case 4: {
-        if (a >= 8u || bb >= NMODELS[a]) { head(PX_META, id, PX_FUERA); return; }
+        if (a >= 8u || bb >= NSTORE[a]) { head(PX_META, id, PX_FUERA); return; }
         uint8_t m0 = b->s.model[a], pv[8];
         b->s.model[a] = (uint8_t)bb;                     /* (solo para leer la lista: no se manda al audio) */
         unsigned cnt = preset_count(b, a), ed = b->s.has_edited[a] >> bb & 1u;
@@ -406,7 +406,7 @@ static void px_perilla(fg_box_t *b, unsigned id, int many)
     if (PX.bad) { head(PX_PERILLA + (unsigned)many, id, PX_NO_ENTIENDO); return; }
     if (!many && pg == 0u && k >= 4u && t < 8u) {        /* ALGO y PRESET */
         if (k == 4u) {
-            v = clampi(v, 0, NMODELS[t] - 1);
+            v = (int)model_ok(t, (unsigned)clampi(v, 0, NSTORE[t] - 1));
             if (b->s.model[t] != v) { b->s.model[t] = (uint8_t)v; post(b, M_MODEL, t, (unsigned)v, 0, 0); clear_acc(b); mark(b); }
             head(PX_PERILLA, id, PX_BIEN); ws14(b->s.model[t]); w14(px_own(b));
         } else if (k == 5u) {
@@ -489,7 +489,7 @@ static void px_transporte(fg_box_t *b, unsigned id)
     case 1:
         if (v >= FBX_NP) { head(PX_TRANSPORTE, id, PX_FUERA); return; }
         if (b->s.chain_on) { b->s.chain_on = 0; send_chain(b, 0); }
-        if (b->playing) post(b, M_QUEUE, 0, 0, 0, (int32_t)v); else { b->s.cur = (uint8_t)v; post(b, M_QUEUE, 0, 0, 0, (int32_t)v); }
+        queue_pat(b, v);
         mark(b); break;
     case 2: b->mute = (uint8_t)v; b->has_pend = 0; send_mutes(b, 1); break;
     case 3: b->solo = (uint8_t)v; send_mutes(b, 1); break;

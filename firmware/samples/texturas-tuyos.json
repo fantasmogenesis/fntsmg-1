@@ -1,0 +1,103 @@
+{
+ "texturas": [
+  {
+   "nombre": "CORO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/CORO.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 16000,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "CAMPANAS LEJANAS",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/CAMPANAS LEJANAS.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "CINTA",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/CINTA.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 11025,
+   "nota": 55,
+   "origen": "generado"
+  },
+  {
+   "nombre": "VIDRIO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/VIDRIO.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 16000,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "MAR GRAVE",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/MAR GRAVE.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 11025,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "METAL ARCO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/METAL ARCO.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 64,
+   "origen": "generado"
+  },
+  {
+   "nombre": "HIELO",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/HIELO.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 16000,
+   "nota": 60,
+   "origen": "generado"
+  },
+  {
+   "nombre": "TEXTURE PAD",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/TEXTURE PAD.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 11025,
+   "nota": 59,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 24/TEXTURE PAD.wav"
+  },
+  {
+   "nombre": "PAD 23",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/PAD 23.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 57,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 23/PAD.wav"
+  },
+  {
+   "nombre": "PAD 25",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/PAD 25.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 65,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 25/PAD.wav"
+  },
+  {
+   "nombre": "PAD 4",
+   "archivo": "/Volumes/SSD-HUB/tools/fm1-groovebox/firmware/samples/candidatos/texturas/PAD 4.wav",
+   "inicio": 0.6,
+   "largo": 2.35,
+   "tasa": 22050,
+   "nota": 62,
+   "origen": "librería: LIBRERÍAS ORGANIZADAS/Librería 1/PACKS/PACK 4/PAD.wav"
+  }
+ ]
+}

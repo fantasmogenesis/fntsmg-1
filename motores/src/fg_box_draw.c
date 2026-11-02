@@ -55,6 +55,13 @@ static void text(const char *s0, int x, int y, int px, int maxw, uint16_t c, int
     int i = px >= 36 ? 0 : px >= 20 ? 1 : px >= 13 ? 2 : 3;
     while (i < 3 && text_w(F[i], d->s) > maxw) i++;
     d->kind = D_TEXT; d->f = F[i]; d->x = (int16_t)x; d->y = (int16_t)y; d->col = c; d->align = (uint8_t)right;
+#ifdef FG_TEXT_LOG
+    {   /* (solo en la Mac: firmware/host/textos.c junta cada texto con la pantalla donde sale) */
+        void fg_text_log(const char *s0, const char *s, int x, int y, int w, int h);
+        int w = text_w(F[i], d->s);
+        fg_text_log(s0, d->s, right ? x - w : x, y, w, F[i]->asc + F[i]->desc);
+    }
+#endif
 }
 static void number(const char *s, int x, int y, uint16_t c)
 {
@@ -82,59 +89,12 @@ static void cati(char *d, int v, unsigned cap)
     scat(d, o, cap);
 }
 static const char *const TN[8] = {"BOMBO", "CAJA", "METAL", "PERC", "SINTE A", "SINTE B", "SINTE C", "SINTE D"};
-/* los nombres de los motores no se traducen ("\1": fg_lang.c) */
-static const char *const MNAME[4][3] = {{"\1BARRIDO", "\1MEMBRANA", "\1SAMPLE"}, {"\1CAJA", "\1APLAUSO", "\1SAMPLE"}, {"\1GRANIZO", "\1PLACA", "\1SAMPLE"},
-                                        {"\1GOTA", "\1CHATARRA", "\1SAMPLE"}};
-static const char *const YNAME[FGY_MODELS] = {"\1SH", "\1ÁCIDO", "\1FM", "\1CUERDAS", "\1TEXTURA", "\1DRON", "\1DUB", "\1RESONADOR", "\1SAMPLE"};
+/* (los nombres de los motores: fbx_model_name en fg_box.c; no se traducen) */
 static const char *const CONDS[12] = {"SIEMPRE", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "SIN FILL"};
 static const char *const MIXL[4] = {"VOLUMEN", "PANEO", "DELAY", "REVERB"};
 
 static int held(const fg_box_t *b, unsigned id) { return (b->down >> id) & 1u; }
 static int heldb(const fg_box_t *b, unsigned i) { return (b->bdown >> i) & 1u; }
-
-/* mantener un botón solo: a los 0.3 s sale qué hace mantenerlo (con su barra) y qué más se hace con él apretado */
-static int hint_btn(const fg_box_t *b)
-{
-    static const uint8_t ID[7] = {FB_EDIT, FB_SCL, FB_ENV, FB_LFO, FB_GLO, FB_ARP, FB_SAVE};
-    if (b->wdown || b->bdown || (b->down & (b->down - 1u))) return -1;
-    for (unsigned k = 0; k < 7; k++) {
-        unsigned id = ID[k];
-        if (held(b, id) && !((b->used_btn | b->long_done) >> id & 1u) && b->now - b->press_ms[id] >= 300u) return (int)id;
-    }
-    return -1;
-}
-static void hint(const fg_box_t *b, unsigned id)
-{
-    if (id == FB_SAVE) {
-        band(120);
-        text("GUARDAR", 12, 142, 13, 100, C_FG, 0);
-        text("SOLTAR = PROYECTO", 228, 142, 11, 120, C_DIM, 1);
-        text("BLANCA VACÍA = GUARDA AHÍ", 12, 162, 11, 216, C_DIM, 0);
-        text("BLANCA LLENA: DOBLE = ABRIR,", 12, 180, 11, 216, C_DIM, 0);
-        text("MANTENER = GUARDAR ENCIMA", 12, 198, 11, 216, C_DIM, 0);
-        text("+ EDIT = GUARDA EL SONIDO", 12, 216, 11, 216, C_DIM, 0);
-        text("OCT – / + = DESHACER / REHACER", 12, 234, 11, 216, C_DIM, 0);
-        return;
-    }
-    const char *what = "", *L1 = 0, *L2 = 0;
-    switch (id) {
-    case FB_EDIT: what = "MANTÉN = SONIDO INICIAL"; L1 = "+ SAVE = GUARDA EL SONIDO"; L2 = "SEL + EDIT = SONIDO AL AZAR"; break;
-    case FB_SCL: what = "MANTÉN = VACIAR PISTA"; L1 = "+ EDIT = SONIDO AL AZAR"; L2 = "+ SEQ = RITMO AL AZAR"; break;
-    case FB_ENV: what = "MANTÉN = MEZCLA INICIAL"; break;
-    case FB_LFO: what = "MANTÉN = SIN LFO"; break;
-    case FB_GLO: what = "MANTÉN = SWING Y ESCALA"; break;
-    case FB_ARP:
-        if (b->sel < 4) { what = "ARPEGIADOR: SOLO SINTES"; break; }
-        if ((b->s.arp_on >> b->sel) & 1u) what = b->s.arp[b->sel][3] ? "MANTÉN = ARP SUELTO" : "MANTÉN = ARP SOSTENIDO";
-        else what = b->s.arp[b->sel][3] ? "MANTÉN = NOTAS SUELTAS" : "MANTÉN = NOTAS SOSTENIDAS";
-        L1 = "1 MODO     2 VELOCIDAD"; L2 = "3 OCTAVAS     4 SOSTENER"; break;
-    }
-    int h = L1 ? 82 : 46, y = 240 - h + 22, w = (int)(b->now - b->press_ms[id] - 300u) * 216 / 700;
-    band(h);
-    text(what, 12, y, 13, 216, C_FG, 0);
-    if (!(id == FB_ARP && b->sel < 4)) { rect(12, y + 8, 216, 4, C_LINE); rect(12, y + 8, w > 216 ? 216 : w, 4, C_FG); }
-    if (L1) { text(L1, 12, y + 36, 11, 216, C_DIM, 0); text(L2, 12, y + 54, 11, 216, C_DIM, 0); }
-}
 
 /* el arranque: líneas de señal que se enganchan, FNTSMG-1 letra por letra con cortes, el punto rojo; ~2 s */
 static uint32_t hsh(uint32_t x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; return x ^ (x >> 16); }
@@ -192,10 +152,10 @@ void fg_box_frame(fg_box_t *b)
     u->now_ms = now;
     u->perf = 0;
     static const uint16_t PM[16] = {FG_VIS_REP4, FG_VIS_REP8, FGP_STUT16, FGP_STUT32, FGP_REV, FGP_HALF, FGP_BRAKE, FGP_GATE,
-                                    FGP_LP, FGP_HP, FGP_BITS, FGP_THROW, FGP_FREEZE, 0, 0, FGP_RISER};
+                                    FGP_LP, FGP_HP, FGP_BITS, FGP_THROW, FGP_FREEZE, 0, 0, 0};
     for (int i = 0; i < 16; i++) if ((b->perf >> i) & 1u) u->perf |= PM[i];
-    int chainv = b->page == PG_CHAIN && !held(b, FB_FX);
-    u->view = held(b, FB_HOME) && !chainv ? FG_VIEW_PAT : chainv ? FG_VIEW_VIS : (b->page == PG_ENV && b->seqmode && !held(b, FB_FX)) ? FG_VIEW_MIX : FG_VIEW_VIS;
+    int chainv = b->page == PG_CHAIN, slotv = b->page == PG_SLOTS;
+    u->view = (b->page == PG_PATS || (held(b, FB_HOME) && b->nhome)) && !chainv && !slotv ? FG_VIEW_PAT : b->page == PG_ENV ? FG_VIEW_MIX : FG_VIEW_VIS;
     u->bpm = b->s.bpm; u->sel = b->sel; u->cur = b->s.cur; u->queued = b->queued;
     u->used = 0;
     for (unsigned p = 0; p < FBX_NP; p++)
@@ -211,7 +171,6 @@ void fg_box_frame(fg_box_t *b)
     if (b->intro) { intro(now - b->intro_t0); goto hash; }
     char s1[44], s2[44];
     uint8_t hs[16]; unsigned nhs = 0;
-    int hk = chainv ? -1 : hint_btn(b);
     for (unsigned k = 0; k < b->nhw; k++) { unsigned s = b->sp * 16u + b->hw[k]; if (s < tr->len) hs[nhs++] = (uint8_t)s; }
     if (chainv) {                                          /* CADENA: 16 filas como en un tracker, la elegida en blanco */
         int on = b->s.chain_on, now_r = fg_box_chain_row(b);
@@ -233,6 +192,19 @@ void fg_box_frame(fg_box_t *b)
             } else text("–", x + 32, y + 15, 13, 60, cn, 0);
         }
         text("1 PATRÓN   2 VECES   4 SÍ / NO", 12, 233, 11, 216, C_DIM, 0);
+    }
+    if (slotv) {                                           /* RANURAS: las 16, llenas en blanco */
+        rect(0, 0, 240, 240, C_BG);
+        text("RANURAS", 12, 25, 16, 216, C_FG, 0);
+        rect(0, 35, 240, 1, C_LINE);
+        for (int i = 0; i < 16; i++) {
+            int x = 8 + (i & 3) * 58, y = 44 + (i >> 2) * 48, full = (b->slots >> i) & 1u;
+            int arm = b->slot_open == i + 1 && ((now >> 7) & 1u);
+            rect(x, y, 50, 40, full ? C_FG : C_LINE);       /* (vacía: el borde es una caja con otra encima) */
+            if (!full || arm) rect(x + 2, y + 2, 46, 36, C_BG);
+            s1[0] = 0; cati(s1, i + 1, sizeof s1);
+            text(s1, x + 25 - text_w(&FG_FONT_M, s1) / 2, y + 26, 13, 40, full && !arm ? C_BG : full ? C_FG : C_DIM, 0);
+        }
     }
     if (u->view == FG_VIEW_PAT) {
         band(34);
@@ -265,27 +237,16 @@ void fg_box_frame(fg_box_t *b)
             else { rect(x, 200, 26, 2, C_DIM); rect(x, 228, 26, 2, C_DIM); }
             text(d, x + 8, 221, 13, 20, pend ? C_DIM : so ? C_FG : off ? C_DIM : C_BG, 0);
         }
-    } else if (heldb(b, BK_COPY) && !held(b, FB_FX)) {     /* COPIA: qué hacer, qué está copiado, dónde se pegó */
-        static const char *const HINT[4] = {"", "HOME + OTRA BLANCA", "OTRA BLANCA", "OTRA NEGRA"};
-        band(66);
-        if (!b->copy_kind) {
-            text("COPIAR", 12, 196, 13, 216, C_FG, 0);
-            text("BLANCA = PASO    NEGRA = PISTA", 12, 215, 11, 216, C_DIM, 0);
-            text("HOME + BLANCA = PATRÓN", 12, 232, 11, 216, C_DIM, 0);
-        } else {
-            scpy(s1, "COPIADO  ", sizeof s1);
-            if (b->copy_kind == 3) scat(s1, TN[b->copy_idx & 7], sizeof s1);
-            else { scat(s1, b->copy_kind == 1 ? "PATRÓN " : "PASO ", sizeof s1); cati(s1, b->copy_idx + 1, sizeof s1); }
-            text(s1, 12, 196, 13, 216, C_FG, 0);
-            const char *a = b->ov.label, *p = "PEGADO";
-            while (*p && *a == *p) { a++; p++; }
-            if (now < b->ov.until && !*p && !*a) { scpy(s2, "PEGADO EN ", sizeof s2); scat(s2, b->ov.value, sizeof s2); text(s2, 12, 215, 11, 216, C_FG, 0); }
-            else text("TOCA DÓNDE PEGARLO", 12, 215, 11, 216, C_DIM, 0);
-            text(HINT[b->copy_kind & 3], 12, 232, 11, 216, C_DIM, 0);
-        }
-    } else if (held(b, FB_FX)) {
-        /* con los efectos, solo el visual */
-    } else if (held(b, FB_ARP) && nhs) {
+    } else if ((heldb(b, BK_COPY) || heldb(b, BK_PASTE)) && now >= b->ov.until) {   /* COPIAR / PEGAR: lo que está copiado */
+        band(40);
+        scpy(s1, heldb(b, BK_COPY) ? "COPIAR" : "PEGAR", sizeof s1);
+        text(s1, 12, 226, 15, 100, C_FG, 0);
+        s2[0] = 0;
+        if (b->copy_kind == 3) scpy(s2, TN[b->copy_idx & 7], sizeof s2);
+        else if (b->copy_kind) { scpy(s2, b->copy_kind == 1 ? "PATRÓN " : "PASO ", sizeof s2); cati(s2, b->copy_idx + 1, sizeof s2); }
+        else scpy(s2, "–", sizeof s2);
+        text(s2, 228, 226, 13, 120, C_DIM, 1);
+    } else if (b->page == PG_PASO && nhs) {
         const fg_step_t *st = &tr->st[hs[0]];
         band(108);
         scpy(s1, "PASO ", sizeof s1); cati(s1, hs[0] + 1, sizeof s1); scat(s1, "  ·  ", sizeof s1); scat(s1, TN[b->sel], sizeof s1);
@@ -301,8 +262,6 @@ void fg_box_frame(fg_box_t *b)
             text(L[k], x, y, 11, 104, C_DIM, 0);
             text(V[k], x, y + 22, 20, 104, C_FG, 0);
         }
-    } else if (hk >= 0) {
-        hint(b, (unsigned)hk);
     } else if (now < b->ov.until && u->view == FG_VIEW_MIX) {
         rect(0, 0, 240, 40, C_BG); rect(0, 40, 240, 1, C_LINE);
         int ismix = 0;
@@ -350,13 +309,13 @@ void fg_box_frame(fg_box_t *b)
         rect(0, 0, 240, 40, C_BG); rect(0, 40, 240, 1, C_LINE);
         s1[0] = 0; cati(s1, b->sel + 1, sizeof s1); scat(s1, " · ", sizeof s1); scat(s1, TN[b->sel], sizeof s1);
         text(s1, 12, 25, 13, 100, C_DIM, 0);
-        text(b->sel >= 4 ? YNAME[b->s.model[b->sel] % FGY_MODELS] : MNAME[b->sel][b->s.model[b->sel] % 3u], 228, 28, 22, 120, C_FG, 1);
+        text(fbx_model_name(b->sel, b->s.model[b->sel]), 228, 28, 22, 120, C_FG, 1);
     } else if (now < b->big_until) {
         band(96);
         char d[2] = {(char)('1' + b->sel), 0};
         number(d, 10, 226, C_FG);
         text(TN[b->sel], 74, 174, 13, 154, C_DIM, 0);
-        text(b->sel >= 4 ? YNAME[b->s.model[b->sel] % FGY_MODELS] : MNAME[b->sel][b->s.model[b->sel] % 3u], 74, 212, 28, 154, C_FG, 0);
+        text(fbx_model_name(b->sel, b->s.model[b->sel]), 74, 212, 28, 154, C_FG, 0);
     } else if (b->nhw && b->seqmode && nhs) {
         band(40);
         scpy(s1, "LOCK  ·  PASO", sizeof s1);
@@ -364,7 +323,7 @@ void fg_box_frame(fg_box_t *b)
         if (nhs == 1 && tr->st[hs[0]].v == 2) scat(s1, "  ·  ACENTO", sizeof s1);
         text(s1, 12, 226, 15, 216, C_FG, 0);
     }
-    if (u->view == FG_VIEW_MIX && !heldb(b, BK_MUTE) && hk < 0) {    /* mezcla: cada pista con el código de SILENCIOS (hueso suena, gris apagada, rojo solo) */
+    if (u->view == FG_VIEW_MIX && !heldb(b, BK_MUTE)) {    /* mezcla: cada pista con el código de SILENCIOS (hueso suena, gris apagada, rojo solo) */
         uint8_t want = b->has_pend ? b->pend : b->mute;
         for (unsigned t = 0; t < 8; t++) {
             int x = (80 + (int)t * 470) / 16, so = (b->solo >> t) & 1u, off = ((want >> t) & 1u) || (b->solo && !so);
@@ -377,7 +336,7 @@ void fg_box_frame(fg_box_t *b)
         }
     }
     if (b->rec) dot(226, 14, 5, C_RED);
-    if (heldb(b, BK_FILL)) { rect(8, 8, 50, 22, C_FG); text("FILL", 14, 25, 13, 40, C_BG, 0); }
+    if ((b->perf >> FBX_PERF_FILL) & 1u) { rect(8, 8, 50, 22, C_FG); text("FILL", 14, 25, 13, 40, C_BG, 0); }
 hash:;
     uint32_t h = 2166136261u;
     const uint8_t *q = (const uint8_t *)DL;

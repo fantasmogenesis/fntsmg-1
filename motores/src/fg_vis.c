@@ -352,20 +352,48 @@ static void renderMixer(fg_vis_t *V, const fg_vis_ui_t *ui)
     }   /* (los números de pista, prendida/apagada/solo en color, los pone la caja encima: fg_box_draw) */
 }
 
+/* (borra un pixel: el número oscuro sobre la caja llena) */
+static void pxz(fg_vis_t *V, int x, int y)
+{
+    if ((unsigned)x >= FG_VIS_D || (unsigned)y >= FG_VIS_D) return;
+    unsigned x0 = V->xm[x], x1 = V->xm[x + 1], y0 = V->ym[y], y1 = V->ym[y + 1];
+    if (x1 == x0) x1++;
+    if (y1 == y0) y1++;
+    for (unsigned yy = y0; yy < y1; yy++) for (unsigned xx = x0; xx < x1; xx++) { uint8_t *b = V->buf + yy * (V->w >> 1) + (xx >> 1); *b &= (xx & 1u) ? 0xF0u : 0x0Fu; }
+}
+static void number_z(fg_vis_t *V, unsigned n, int cx, int cy, int s)
+{
+    unsigned d[3], len = 0;
+    do { d[len++] = n % 10u; n /= 10u; } while (n && len < 3);
+    for (unsigned i = 0; i < len; i++) {
+        int x0 = cx + (int)(2 * i + 1 - len) * s * 2 - 3 * s / 2;
+        for (int y = 0; y < 5; y++) for (int x = 0; x < 3; x++) {
+            if (!((DIG[d[len - 1 - i]][y] >> (2 - x)) & 1u)) continue;
+            for (int a = 0; a < s; a++) for (int c = 0; c < s; c++) pxz(V, x0 + x * s + a, cy + y * s + c);
+        }
+    }
+}
+/* PATRONES: con pasos, caja llena y número oscuro; vacío, solo el borde. El que suena lleva marco; el de la cola parpadea */
 static void renderPatterns(fg_vis_t *V, const fg_vis_ui_t *ui)
 {
     for (uint32_t i = 0, n = (uint32_t)V->w * V->h / 2u; i < n; i++) V->buf[i] = (uint8_t)((V->buf[i] >> 2) & 0x33u);
     int blink = (int)((ui->now_ms / 180u) & 1u);
     for (int i = 0; i < 16; i++) {
-        int x = 22 + (i & 3) * 52, y = 14 + (i >> 2) * 44, cur = i == ui->cur;
-        int v = cur ? 256 : (i == ui->queued && blink) ? 256 : ((ui->used >> i) & 1u) ? 141 : 64;
-        for (int xx = 0; xx < 40; xx++) { pxd(V, x + xx, y, v); pxd(V, x + xx, y + 33, v); }
-        for (int yy = 0; yy < 34; yy++) { pxd(V, x, y + yy, v); pxd(V, x + 39, y + yy, v); }
-        if (cur) {
-            for (int xx = -3; xx < 43; xx++) { pxd(V, x + xx, y - 3, 256); pxd(V, x + xx, y + 36, 256); }
-            for (int yy = -3; yy < 37; yy++) { pxd(V, x - 3, y + yy, 256); pxd(V, x + 42, y + yy, 256); }
+        int x = 22 + (i & 3) * 52, y = 14 + (i >> 2) * 44, cur = i == ui->cur, used = (ui->used >> i) & 1u;
+        int v = cur || used ? 256 : 110;
+        if (i == ui->queued && i != ui->cur && blink) v = used ? 0 : 256;
+        if (used && v) for (int yy = 0; yy < 34; yy++) for (int xx = 0; xx < 40; xx++) pxd(V, x + xx, y + yy, v);
+        else {
+            int e = v ? v : 110;
+            for (int xx = 0; xx < 40; xx++) { pxd(V, x + xx, y, e); pxd(V, x + xx, y + 33, e); }
+            for (int yy = 0; yy < 34; yy++) { pxd(V, x, y + yy, e); pxd(V, x + 39, y + yy, e); }
         }
-        number(V, (unsigned)i + 1, (x + 20) * 16, (y + 10) * 16, v, 3);
+        if (cur) {
+            for (int xx = -4; xx < 44; xx++) for (int k = 0; k < 2; k++) { pxd(V, x + xx, y - 4 + k, 256); pxd(V, x + xx, y + 36 + k, 256); }
+            for (int yy = -4; yy < 38; yy++) for (int k = 0; k < 2; k++) { pxd(V, x - 4 + k, y + yy, 256); pxd(V, x + 42 + k, y + yy, 256); }
+        }
+        if (used && v) number_z(V, (unsigned)i + 1, x + 20, y + 10, 3);
+        else number(V, (unsigned)i + 1, (x + 20) * 16, (y + 10) * 16, v ? v : 110, 3);
     }
 }
 

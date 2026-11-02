@@ -8,7 +8,7 @@ static const uint8_t CONDAB[10][2] = {{0, 0}, {1, 2}, {2, 2}, {1, 3}, {2, 3}, {3
 static const uint8_t AZ[4][2][2] = {{{0, 2}, {0, 2}}, {{0, 3}, {0, 3}}, {{2, 1}, {0, 1}}, {{0, 2}, {0, 3}}};
 static const uint8_t AZS[8][2] = {{3, 6}, {1, 4}, {2, 5}, {2, 5}, {2, 3}, {4, 1}, {2, 3}, {4, 2}};   /* sh ácido fm cuerdas textura dron dub resonador: color, caída */
 
-enum { QK_APPLY, QK_TRIG, QK_MANUAL, QK_PRE, QK_MUTES };
+enum { QK_APPLY, QK_TRIG, QK_MANUAL, QK_PRE, QK_MUTES, QK_KIT };
 
 /* ---- aritmética entera ---- */
 
@@ -170,16 +170,22 @@ static void fire(fg_seq_t *q, fg_seq_ev_t *e, unsigned t, int vel, const uint8_t
 
 /* ---- patrón ---- */
 
-static void switchTo(fg_seq_t *q, unsigned p)
+/* at: cuándo empieza a sonar (tocando); sin at, ya: su sonido entra al instante */
+static void switchTo(fg_seq_t *q, unsigned p, const uint32_t *at)
 {
     q->cur = (uint8_t)p;
     for (int t = 0; t < FG_SEQ_T; t++) { q->pos[t] = -1; q->loops[t] = 0; }
     q->patTick = 0;
     ev_pat(q, -1);
+    if (!q->on_kit) return;
+    if (at) { fg_seq_q_t *e = push(q, QK_KIT, 0, at[0], at[1]); if (e) e->st = (uint8_t)p; return; }
+    q->on_kit(q->kit_ctx, p);
+    fg_seq_ev_t *e = emit_now(q, FG_EV_KIT, 0);
+    if (e) e->a = (uint8_t)p;
 }
 void fg_seq_queue(fg_seq_t *q, unsigned p)
 {
-    if (!q->playing) { switchTo(q, p); q->queued = -1; }
+    if (!q->playing) { switchTo(q, p, 0); q->queued = -1; }
     else { q->queued = (int16_t)p; ev_pat(q, (int)p); }
 }
 void fg_seq_chain(fg_seq_t *q, const uint8_t *list, unsigned n)
@@ -212,6 +218,14 @@ static int passes(fg_seq_t *q, unsigned t, const fg_step_t *st)
     return 1;
 }
 
+/* FILL sin pasos de fill en el patrón: el fill lo pone el secuenciador (caja y percusión) */
+static int has_fill(const fg_pattern_t *pat)
+{
+    for (unsigned t = 0; t < FG_SEQ_T; t++)
+        for (unsigned s = 0; s < FG_SEQ_NS; s++) { const fg_step_t *st = &pat->tr[t].st[s]; if (st->v && (st->c == FG_COND_FILL || st->c == FG_COND_NOFILL)) return 1; }
+    return 0;
+}
+
 static int preHas(const fg_seq_t *q, int32_t key)
 {
     for (int i = 0; i < q->npre; i++) if (q->pre[i] == key) return 1;
@@ -223,8 +237,9 @@ static void decide(fg_seq_t *q, uint32_t dk, uint32_t atS, uint32_t atF)
 {
     uint32_t span = patTicks(q);
     if (q->patTick > 0 && q->patTick % span == 0) {
-        if (q->queued >= 0) { unsigned p = (unsigned)q->queued; q->queued = -1; switchTo(q, p); }
-        else if (q->nchain > 1) { q->chainpos = (uint8_t)((q->chainpos + 1) % q->nchain); switchTo(q, q->chain[q->chainpos]); }
+        uint32_t at[2] = {atS, atF};
+        if (q->queued >= 0) { unsigned p = (unsigned)q->queued; q->queued = -1; switchTo(q, p, at); }
+        else if (q->nchain > 1) { q->chainpos = (uint8_t)((q->chainpos + 1) % q->nchain); switchTo(q, q->chain[q->chainpos], at); }
     }
     if (dk % 32u == 0 && q->pend) {
         q->pend = 0;
@@ -235,6 +250,7 @@ static void decide(fg_seq_t *q, uint32_t dk, uint32_t atS, uint32_t atF)
     const fg_pattern_t *pat = &q->pat[q->cur];
     int rep = (q->perf & FG_SEQ_REP8) ? 2 : (q->perf & FG_SEQ_REP4) ? 4 : 0;
     int32_t S = (int32_t)sr15(q), bpm = q->bpm;
+    int autofill = q->fill && !has_fill(pat);
     for (unsigned t = 0; t < FG_SEQ_T; t++) {
         const fg_track_t *tr = &pat->tr[t];
         int m = MULT[tr->spd], len = tr->len ? tr->len : 1;
@@ -247,10 +263,19 @@ static void decide(fg_seq_t *q, uint32_t dk, uint32_t atS, uint32_t atF)
         const fg_step_t *st = &tr->st[s];
         fg_seq_q_t *e = push(q, QK_APPLY, t, atS, atF);
         if (e) { e->st = (uint8_t)s; fg_copy(e->lk, st->lk, 12); for (unsigned i = 0; i < 8; i++) e->au[i] = (uint8_t)FG_AU_GET(st, i); }
+        fg_step_t fs;                                             /* el fill automático: la caja en dieciseisavos que crecen */
+        unsigned b16 = (unsigned)s % 16u;                         /* (redoble al final), la percusión a contratiempo */
+        if (autofill && (t == 1 || t == 3)) {
+            fs = *st; fs.c = 0; fs.p = 100; fs.u = 0;
+            if (t == 1) { fs.v = b16 % 4u == 0 ? 2 : 1; fs.r = b16 >= 14u ? 2 : 1; }
+            else { fs.v = (b16 & 1u) ? 1 : st->v; fs.r = 1; }
+            st = &fs;
+        }
         if (!st->v || ((q->perf & FG_SEQ_NOKICK) && t == 0) || ((q->perf & FG_SEQ_SOLOPERC) && t >= 4)) continue;
         if (!passes(q, t, st)) continue;
         if (q->dens[t] < 127u && st->v != 2 && (fg_rand(&q->rng) >> 25) >= q->dens[t]) continue;   /* DENSIDAD: los acentos se quedan */
         int vel = st->v == 2 ? 127 : 100, r = st->r ? st->r : 1;
+        if (st == &fs && t == 1) vel = 64 + (int)(b16 * 63u / 15u);
         int32_t micro = rdiv(st->u * S * m, 32 * bpm);
         if (q->hum[t]) {                                          /* HUMANO: hasta ±1/64 de nota y −30 de fuerza */
             int32_t j = (int32_t)(fg_rand(&q->rng) >> 16) - 32768;
@@ -412,6 +437,11 @@ static void runEvent(fg_seq_t *q, const fg_seq_q_t *e, unsigned at, fg_seq_ev_t 
         fire(q, g, t, e->vel, e->lk, e->len, e->kind == QK_MANUAL ? FG_EVF_MANUAL : e->first ? FG_EVF_FIRST : 0);
         break; }
     case QK_PRE: { fg_seq_ev_t *p = emit(out, no, cap, at, FG_EV_PRE, t); if (p) p->len = e->len; break; }
+    case QK_KIT: {
+        if (q->on_kit) q->on_kit(q->kit_ctx, e->st);
+        fg_seq_ev_t *k = emit(out, no, cap, at, FG_EV_KIT, 0);
+        if (k) k->a = e->st;
+        break; }
     case QK_MUTES: {
         q->mute = e->mute; q->solo = e->solo;
         fg_seq_ev_t *m = emit(out, no, cap, at, FG_EV_MUTE, 0);

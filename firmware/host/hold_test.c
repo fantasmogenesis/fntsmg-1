@@ -19,14 +19,15 @@ int main(void)
     B.s.model[4] = FGY_SH;                               /* (SH: una voz por nota; CUERDAS junta el acorde en una) */
     { extern void fg_box_enc(fg_box_t *, unsigned, int); }
     fg_box_enc(&B, FE_ALGO, 1); fg_box_enc(&B, FE_ALGO, -1); run(50);
-    fg_box_button(&B, FB_ARP, 1); run(1200); fg_box_button(&B, FB_ARP, 0); run(50);
-    printf("mantener ARP: %s · %s (sostener %d, arp %d)\n", B.ov.label, B.ov.value, B.s.arp[4][3], (B.s.arp_on >> 4) & 1);
+    fg_box_button(&B, FB_ARP, 1); fg_box_button(&B, FB_ARP, 0); run(100);
+    fg_box_enc(&B, FE_K4, 1); run(100); fg_box_enc(&B, FE_K4, 1); run(100); fg_box_enc(&B, FE_K4, 1); run(50);
+    printf("ARP, K4 (SOSTENER): %s · %s (sostener %d, arp %d)\n", B.ov.label, B.ov.value, B.s.arp[4][3], (B.s.arp_on >> 4) & 1);
     bad += !B.s.arp[4][3] || ((B.s.arp_on >> 4) & 1);
     fg_box_key(&B, W2K[0], 1); fg_box_key(&B, W2K[2], 1); run(100); fg_box_key(&B, W2K[0], 0); fg_box_key(&B, W2K[2], 0); run(800);
     printf("acorde soltado, 0.8 s después: %u notas sostenidas (2 = bien)\n", held_voices()); bad += held_voices() != 2;
     fg_box_key(&B, W2K[4], 1); run(50); fg_box_key(&B, W2K[4], 0); run(800);
     printf("otra nota: %u sostenidas (1 = bien)\n", held_voices()); bad += held_voices() != 1;
-    fg_box_button(&B, FB_ARP, 1); run(1200); fg_box_button(&B, FB_ARP, 0); run(800);
+    fg_box_enc(&B, FE_K4, -1); run(100); fg_box_enc(&B, FE_K4, -1); run(100); fg_box_enc(&B, FE_K4, -1); run(800);
     printf("SOSTENER apagado: %s, %u sostenidas (0 = bien)\n", B.ov.value, held_voices()); bad += held_voices() != 0;
     fg_box_key(&B, W2K[1], 1); run(50); fg_box_key(&B, W2K[1], 0); run(50);
     printf("sin SOSTENER, al soltar: %u (0 = bien)\n", held_voices()); bad += held_voices() != 0;

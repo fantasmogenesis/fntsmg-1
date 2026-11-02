@@ -180,7 +180,7 @@ static void fm_render(fgy_voice_t *v, int32_t *out, int32_t lvl, unsigned n)
             idx = (int32_t)v->p[2] * 600;
             idx += (int32_t)(((int64_t)idx * e * golpe / 32) >> 15);
         }
-        int32_t m = fg_sin(v->ph[1] + (uint32_t)(((int64_t)v->fbz * fb) << 2));   /* realimentación: hasta caos */
+        int32_t m = fg_sin(v->ph[1] + (uint32_t)((int64_t)v->fbz * fb * 4));   /* realimentación: hasta caos */
         v->fbz = (v->fbz + m) >> 1;
         int32_t s = fg_sin(v->ph[0] + (uint32_t)((int64_t)m * idx));
         v->ph[0] += v->inc[0]; v->ph[1] += v->inc[1];
@@ -382,7 +382,7 @@ static void reson_render(fgy_voice_t *v, int32_t *out, int32_t lvl, unsigned n)
     for (unsigned i = 0; i < n && v->on; i++) {
         if ((v->cnt++ & 15u) == 0) {
             unsigned mi = p[1] * 3u / 128u, fr = (p[1] * 3u * 256u / 128u) & 255u;
-            v->sph += 900u + (uint32_t)p[6] * 60u;
+            v->sph += 900u + (uint32_t)p[6] * 60u + (p[6] > 96u ? (uint32_t)(p[6] - 96u) * 6000u : 0u);   /* arriba de 96 el movimiento ya es FM: metal raro */
             int32_t wob = fg_mul15(fg_sin(v->sph), (int32_t)p[6] * 10);
             uint32_t f0 = fg_note_inc(v->note_q8 + wob);
             /* CAÍDA: 0.1 .. 8 s el modo grave; BRILLO hace durar más los agudos */
@@ -403,7 +403,8 @@ static void reson_render(fgy_voice_t *v, int32_t *out, int32_t lvl, unsigned n)
             uint32_t q = (uint32_t)(7u * 65536u / (uint32_t)T);        /* (1 − r) Q16 */
             uint32_t rt = 0; for (uint32_t b = 1u << 15; b; b >>= 1) if ((rt + b) * (rt + b) <= q * 65536u) rt += b;   /* √ Q16 */
             arco = (int32_t)(((uint64_t)p[3] * rt * 12u) >> 16);
-            simp = (int32_t)(((uint64_t)p[5] * q * 30u) >> 16);           /* SIMPATÍA: la vuelta no pasa de lo que el modo pierde */
+            simp = (int32_t)(((uint64_t)p[5] * q * (30u + (p[5] > 96u ? (p[5] - 96u) * 8u : 0u))) >> 16);   /* SIMPATÍA: hasta 96 la vuelta no pasa de lo que
+                                                                             * el modo pierde; arriba se pasa y oscila sola, saturada */
             gin = 1;
         }
         int32_t x = fg_mul15(fg_noise(&v->rng), arco >> 1);

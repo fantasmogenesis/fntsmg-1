@@ -78,7 +78,7 @@ static int write_obj(unsigned obj, unsigned ix, const uint8_t *d, uint32_t len, 
 }
 int main(void)
 {
-    B.store_write = s_write; B.store_read = s_read; B.store_has = s_has; B.store_info = s_info; B.sysex_out = out; B.usr_io = &IO; B.version = "FNTSMG-1 0.9";
+    B.store_write = s_write; B.store_read = s_read; B.store_has = s_has; B.store_info = s_info; B.sysex_out = out; B.usr_io = &IO; B.version = "FNTSMG-1 0.10";
     memset(F, 0xFF, sizeof F); uint32_t m = 0x31555746u; memcpy(F + 0xBC000u, &m, 4);
     fg_box_init(&B, VMEM, 240, 240, 4, 1234); fg_box_boot(&B); tick(3000);
     /* INFO */
@@ -86,7 +86,7 @@ int main(void)
     unsigned pv = a7(), fv = a7(), np = a7(), nt = a7(), ns = a7(), sl = a7(); uint32_t ss = a21(); unsigned nb = a7(), tr = a14(); uint32_t zt = a21(), zf = a21(); unsigned lg = a7(), cnt = a14(), fl = a7();
     uint8_t v[64]; unsigned vn = apack(v, 63); v[vn] = 0;
     printf("INFO: protocolo %u, formato %u, %u patrones, %u pistas, %u pasos, %u ranuras de %u B, banco %u, trozo %u, TUYOS %u (%u libres), idioma %u, contador %u, banderas %u, «%s»\n", pv, fv, np, nt, ns, sl, ss, nb, tr, zt, zf, lg, cnt, fl, v);
-    OK(pv == 1 && fv == 7 && np == 16 && nt == 8 && ns == 32 && sl == 16 && ss == 8180 && tr == 512 && !strcmp((char *)v, "FNTSMG-1 0.9"), "INFO");
+    OK(pv == 1 && fv == 9 && np == 16 && nt == 8 && ns == 32 && sl == 16 && ss == 8180 && tr == 512 && !strcmp((char *)v, "FNTSMG-1 0.10"), "INFO");
     /* META */
     qbegin(0x13, 2); q7(0); OK(ask() == 0, "META pistas"); vn = apack(BIG, 600); printf("pistas: "); for (unsigned i = 0; i < vn; i++) putchar(BIG[i] ? BIG[i] : '|'); printf("\n");
     qbegin(0x13, 3); q7(1); q7(0); OK(ask() == 0, "META modelos"); vn = apack(BIG, 600); printf("modelos del bombo (%u): ", BIG[0]); for (unsigned i = 1; i < vn; i++) putchar(BIG[i] ? BIG[i] : '|'); printf("\n");

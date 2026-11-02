@@ -23,7 +23,7 @@
 #ifndef FG_SEQ_NP
 #define FG_SEQ_NP 16                  /* patrones */
 #endif
-#define FG_SEQ_NM 11                  /* modelos por pista (los sintes tienen 11) */
+#define FG_SEQ_NM 16                  /* modelos por pista: el lugar de cada motor en el proyecto (los sintes llegan a 16) */
 #define FG_SEQ_QMAX 128               /* eventos pendientes (decididos y aún no sonados) */
 #ifndef FG_SEQ_CHAIN
 #define FG_SEQ_CHAIN 64                 /* (la vista CADENA: 16 filas con repeticiones, desplegadas) */
@@ -62,6 +62,7 @@ enum {
     FG_EV_MUTE,                       /* mutes: a = máscara de mute, b = máscara de solo */
     FG_EV_STEP,                       /* para la interfaz: la pista t pasó por el paso s */
     FG_EV_PAT,                        /* para la interfaz: a = patrón actual, b = en cola (255 = nada), v = posición en la cadena */
+    FG_EV_KIT,                        /* empieza el patrón a: su sonido entra a los motores en esta muestra */
 };
 enum { FG_EVF_FIRST = 1u << 0, FG_EVF_MANUAL = 1u << 1, FG_EVF_LFO = 1u << 2, FG_EVF_AUTO = 1u << 3 };
 
@@ -132,6 +133,11 @@ typedef struct {
     uint8_t npre;
     fg_seq_ev_t now[24];              /* lo que pasó entre bloques (mute al instante, LFO restaurado…) */
     uint8_t nnow;
+
+    /* el sonido de cada patrón: al empezar uno, on_kit pone su sonido en lo que el secuenciador sabe (en el
+     * momento exacto, antes de sus primeros pasos) y sale FG_EV_KIT para los motores */
+    void (*on_kit)(void *ctx, unsigned pat);
+    void *kit_ctx;
 } fg_seq_t;
 
 void fg_seq_init(fg_seq_t *q, uint32_t sr, uint32_t seed);

@@ -15,6 +15,7 @@
 #include "fg_metal.h"
 #include "fg_perc.h"
 #include "fg_synth.h"
+#include "fg_cand.h"
 #include "fg_mix.h"
 #include "fg_seq.h"
 #include "fg_vis.h"
@@ -36,20 +37,24 @@ enum { FE_SELECT, FE_ALGO, FE_PRESET, FE_K1, FE_K2, FE_K3, FE_K4, FE_NENC };
 #define FBX_NP FG_SEQ_NP
 #define FBX_NM FG_SEQ_NM                    /* motores por pista (los sintes tienen 10) */
 
-enum { PG_EDIT, PG_ENV, PG_FX, PG_SCL, PG_LFO, PG_GLO, PG_CHAIN };
-enum { BK_MUTE = 8, BK_FILL = 9, BK_COPY = 10 };   /* las tres negras de arriba: sostenerlas cambia lo que hacen las otras */
+/* páginas: un toque abre la del botón encima de lo que haya; otro toque, su segunda página. ENV, FX, CADENA,
+ * PATRONES y RANURAS se quedan con las blancas (silencios, efectos, filas, patrones, ranuras); en las demás las
+ * blancas son pasos (SEQ) o notas (ARP) */
+enum { PG_EDIT, PG_ENV, PG_FX, PG_SCL, PG_LFO, PG_GLO, PG_CHAIN, PG_ARP, PG_PASO, PG_PATS, PG_SLOTS, PG_N };
+enum { BK_MUTE = 8, BK_COPY = 9, BK_PASTE = 10 };  /* las tres negras de arriba: sostenerlas cambia lo que hacen las otras */
+#define FBX_PERF_FILL 15                    /* el FX de performance que es el FILL (la blanca 16) */
 
 typedef struct { uint8_t type, t, a, b; int32_t v; } fbx_msg_t;
 typedef struct { uint8_t t, m, vel, p[8]; } fbx_hit_t;
 typedef struct { uint8_t key, m; char name[11]; uint8_t p[8]; } fbx_upre_t;   /* key = pista; m = modelo */
 /* arpegiador de un sinte (lado del audio): las teclas sostenidas y por dónde va */
 typedef struct {
-    uint8_t on, cfg[4], n, keys[16], lks[16], pos, up, held;
+    uint8_t on, cfg[4], cfg2[4], n, keys[16], lks[16], pos, up, held, rep, cnt, last;
     uint32_t next, lastk;
     int32_t rx;                             /* REC: el tick de la última nota grabada (una por paso) */
 } fbx_arp_t;
 #define FBX_UNDO_N 6                        /* deshacer: estados guardados (sonido de las pistas + el patrón) */
-#define FBX_UNDO_SZ 2048
+#define FBX_UNDO_SZ 1392                    /* (sin las perillas de los motores que no suenan: los patrones caben casi igual que antes en 2048) */
 
 /* el proyecto: todo lo que se guarda (los patrones están en el secuenciador) */
 typedef struct {
@@ -67,7 +72,36 @@ typedef struct {
     uint8_t scl2[8][4];                     /* SCL pág. 2: (MOVER no se guarda), TRANSPONER (64 = 0), HUMANO, DENSIDAD */
     uint8_t lfo2[8][4];                     /* LFO pág. 2: el segundo LFO (destino, velocidad, profundidad, forma) */
     uint8_t arp[8][4], arp_on;              /* ARP: modo, velocidad, octavas, sostener; bit t: prendido */
+    uint8_t arp2[8][4];                     /* ARP pág. 2 (v8): LARGO (64 = como siempre), REPETIR (0 = cada nota una vez), PROBABILIDAD, ACENTO */
 } fbx_song_t;
+/* la canción hasta la v8 (0.10 antes de los motores nuevos): 11 motores por pista. Se lee y se pasa a la de ahora */
+const char *fbx_model_name(unsigned t, unsigned m);   /* el nombre de un motor de la pista t (con la marca "\1") */
+#define FBX_NM8 11
+typedef struct {
+    uint8_t model[8], p[8][FBX_NM8][8], mix[8][4], fx[8], lfo[8][4], azar[8];
+    uint8_t bpm, swing, scale, muteq, cur;
+    int8_t transp;
+    uint8_t eu[FBX_NP][8][2];
+    uint8_t has_hand[FBX_NP];
+    uint8_t hand[FBX_NP][8][32];
+    uint8_t edited[8][FBX_NM8][8];
+    uint16_t has_edited[8];
+    uint8_t crow[16], crep[16], chain_on;
+    uint8_t reloj, rsv_clk, mnotes;
+    uint8_t mix2[8][4];
+    uint8_t scl2[8][4];
+    uint8_t lfo2[8][4];
+    uint8_t arp[8][4], arp_on;
+    uint8_t arp2[8][4];
+} fbx_song_v8_t;
+#define FBX_SONG_V7 (sizeof(fbx_song_v8_t) - 32u)  /* la canción hasta la v7 (sin arp2) */
+
+/* el sonido de un patrón: el motor de cada pista con sus 8 perillas, la mezcla, los LFO, SCL pág. 2, AZAR y el ARP.
+ * La canción (fbx_song_t) tiene siempre el del patrón que se ve; las perillas de los otros motores son de todos */
+typedef struct {
+    uint8_t model[8], kp[8][8], mix[8][4], mix2[8][4], lfo[8][4], lfo2[8][4], scl2[8][4], azar[8];
+    uint8_t arp[4][4], arp2[4][4], arp_on;
+} fbx_kit_t;
 
 typedef struct {
     char label[44], value[28];
@@ -78,6 +112,8 @@ typedef struct {
 typedef struct fg_box {
     /* ---------------- audio ---------------- */
     fg_kick_t K; fg_snare_t SN; fg_metal_t MT; fg_perc_t PC; fg_synth_t SY[4];
+    fg_cand_t CA[8];                        /* los motores nuevos de la 0.10 (fg_cand.h): uno por pista, el que esté elegido */
+    fg_metal_t MT2;                         /* PLACA en la pista de PERC (la de METAL sigue en MT) */
     fg_mix_t MX;
     fg_seq_t Q;
     fg_seq_ev_t ev[96];
@@ -126,6 +162,8 @@ typedef struct fg_box {
 
     /* ---------------- interfaz ---------------- */
     fbx_song_t s;
+    fbx_kit_t kit[FBX_NP];                  /* el sonido de cada patrón (el audio lo lee al cambiar de patrón) */
+    uint16_t kit_own;                       /* patrones con sonido propio (uno vacío sin sonido propio toma el del que suena) */
     uint8_t sel, page, pn, seqmode, rec, sp, playing, chainpos;
     int8_t oct;
     uint8_t mute, solo, pend, has_pend;     /* máscaras por pista; pend: lo que quedará al compás */
@@ -134,14 +172,20 @@ typedef struct fg_box {
     uint8_t hw[16], nhw;                    /* blancas sostenidas, en orden */
     uint8_t kt[16];                         /* TOCAR: la pista que sonó cada blanca (para soltarla en la misma) */
     uint16_t used_btn, used_w;              /* ya se usó como modificador: al soltar no hace lo suyo */
-    uint8_t slot_arm;                       /* SAVE + blanca sostenida en una ranura llena: 1 + ranura (0 = nada) */
-    uint32_t slot_ms;
-    uint16_t perf, latch;                   /* FX de performance (por blanca) */
+    uint16_t perf, latch, perf_held;        /* FX de performance (por blanca): sonando, enganchados, apretados */
+    uint16_t note_w;                        /* blancas que tocaron una nota (al soltarlas se suelta) */
+    uint8_t a_model[8];                     /* (audio) el motor que tiene cada pista */
+    uint8_t copy_pat;                       /* COPIAR: el patrón de la pista copiada */
+    fg_step_t copy_st;                      /* COPIAR: el paso copiado */
+    uint8_t at_home;                        /* HOME llevó al visual: otro toque abre los PATRONES */
+    uint8_t slot_open;                      /* RANURAS: 1 + la ranura llena que se tocó una vez (otro toque la abre) */
+    uint32_t slot_open_ms, pat_ms[16];      /* PATRONES: cuándo se apretó cada blanca (mantener 1 s = vaciar) */
+    uint16_t pat_done;
     uint16_t hold_k[4];                     /* SOSTENER sin ARP: las blancas que se soltaron y siguen sonando, por sinte */
     uint8_t perf_last, pk[16][2];           /* el último efecto tocado y las perillas de cada uno (K1, K2; 64 = como siempre) */
     uint16_t kmov[4];                       /* cuánto se acaban de mover K1..K4 (0..256): el visual lo siente */
     uint8_t home_list[16], nhome;
-    int8_t copy_kind, copy_idx;             /* 0 nada, 1 patrón, 2 paso, 3 pista */
+    int8_t copy_kind, copy_idx;             /* lo copiado (se queda hasta copiar otra cosa): 0 nada, 1 patrón, 2 paso, 3 pista */
     uint8_t fx_used, saved_preset, just_on, queued;
     uint32_t tap_btn[FB_NBTN], tap_step[32], tap_slot[FBX_SLOTS];
     uint32_t mix_t[8];                      /* ENV: blanca de pista apretada (mantener = solo) */
@@ -159,16 +203,15 @@ typedef struct fg_box {
     uint32_t now;                           /* ms */
     uint8_t dirty, save_slot_req, load_slot_req;
     uint16_t slots;                         /* ranuras con proyecto guardado */
-    uint8_t pg_before, pn_before;           /* la página antes de apretar SEL (SEL + EDIT / SEQ regresa a ella) */
     uint8_t crow_cur, prev_page;            /* CADENA: la fila elegida; la página a la que regresa HOME */
     uint32_t press_ms[FB_NBTN];             /* cuándo se apretó cada botón (mantener 1 s) */
     uint16_t long_done;                     /* ya hizo lo de mantener */
-    uint32_t rtrk_sum;                      /* SEL + SEQ: la huella del último patrón al azar y el largo de la pista antes de él */
+    uint32_t rtrk_sum;                      /* HOME + SCL: la huella del último patrón al azar y el largo de la pista antes de él */
     uint8_t rtrk_t, rtrk_len;               /* (si la pista sigue igual, el siguiente parte de ese largo y no del que salió) */
     uint32_t rng;
     uint32_t dirty_ms;
     uint32_t retry_ms;                      /* una escritura falló: no reintentar antes de esto (cada intento borra la flash) */
-    /* deshacer / rehacer: cada ráfaga de cambios que se asienta deja un estado; SAVE + OCT− / OCT+ los recorre */
+    /* deshacer / rehacer: cada ráfaga de cambios que se asienta deja un estado; HOME + OCT− / OCT+ los recorre */
     uint8_t undo[FBX_UNDO_N][FBX_UNDO_SZ];
     uint16_t u_len[FBX_UNDO_N];
     uint8_t u_n, u_i, u_dirty;

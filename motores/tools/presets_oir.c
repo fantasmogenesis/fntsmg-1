@@ -12,11 +12,13 @@
 #include "fg_metal.h"
 #include "fg_perc.h"
 #include "fg_synth.h"
+#include "fg_cand.h"
 
 #define SR 44100
 #define LEN (SR * 3)
 static int32_t buf[LEN];
 static fg_kick_t K; static fg_snare_t SN; static fg_metal_t MT; static fg_perc_t PC; static fg_synth_t SY; static fgy_eco_t E;
+static fg_cand_t CA;   /* C y Z: los motores nuevos (fg_cand.c), de percusión y de sinte */
 
 static void wav(const char *fn, int n)
 {
@@ -37,11 +39,12 @@ int main(int argc, char **argv)
         if (n < 10) continue;
         memset(buf, 0, sizeof buf);
         uint8_t lk[8]; memset(lk, 255, 8);
-        int synth = kind == 'Y', len = synth ? LEN : SR * 2;
+        int synth = kind == 'Y', cs = kind == 'Z', len = synth || cs ? LEN : SR * 2;
         if (kind == 'K') { fg_kick_init(&K); fg_kick_model(&K, m); for (int i = 0; i < 8; i++) fg_kick_param(&K, m, i, p[i]); fg_kick_trig(&K, 110, lk, 0); }
         if (kind == 'S') { fg_snare_init(&SN); fg_snare_model(&SN, m); for (int i = 0; i < 8; i++) fg_snare_param(&SN, m, i, p[i]); fg_snare_trig(&SN, 110, lk, 0); }
         if (kind == 'M') { fg_metal_init(&MT); fg_metal_model(&MT, m); for (int i = 0; i < 8; i++) fg_metal_param(&MT, m, i, p[i]); fg_metal_trig(&MT, 110, lk, 0); }
         if (kind == 'P') { fg_perc_init(&PC); fg_perc_model(&PC, m); for (int i = 0; i < 8; i++) fg_perc_param(&PC, m, i, p[i]); fg_perc_trig(&PC, 110, lk, 0); }
+        if (kind == 'C' || cs) { fg_cand_init(&CA, m); for (int i = 0; i < 8; i++) fg_cand_param(&CA, i, p[i]); fg_cand_trig(&CA, 110, cs ? SR : 1); }
         if (synth) {
             fg_synth_init(&SY, 0, m); SY.maxv = 4; SY.eco = &E; memset(&E, 0, sizeof E); SY.step = 5337;   /* 124 BPM */
             for (int i = 0; i < 8; i++) fg_synth_param(&SY, m, i, p[i]);
@@ -57,6 +60,7 @@ int main(int argc, char **argv)
             if (kind == 'M') fg_metal_render(&MT, o, FG_BLOCK);
             if (kind == 'P') fg_perc_render(&PC, o, FG_BLOCK);
             if (synth) fg_synth_render(&SY, o, FG_BLOCK);
+            if (kind == 'C' || cs) fg_cand_render(&CA, o, FG_BLOCK);
         }
         double pk = 0, best = 0, cross = 0; int W = SR / 20, a0 = 0;            /* lo fuerte = los 50 ms más fuertes */
         for (int i = 0; i < len; i++) { double a = fabs((double)buf[i]); if (a > pk) pk = a; }

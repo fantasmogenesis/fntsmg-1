@@ -71,6 +71,7 @@ typedef struct {
     uint32_t gate_len, gate_pos;          /* GATE: medio dieciseisavo encendido, medio apagado */
     uint32_t crush_cnt; int32_t crush_l, crush_r;
     fg_svf_t rs; uint32_t riser_t; int32_t riser_amp, riser_f;
+    uint32_t frz_t;                       /* CONGELA: muestras desde que se prendió (los primeros ~90 ms entran a la reverb) */
     uint32_t seed;
     int16_t capl[FG_CAP / 2u], capr[FG_CAP / 2u];   /* cinta: a 22 kHz (el promedio de cada par de muestras) */
     int32_t cpl, cpr;

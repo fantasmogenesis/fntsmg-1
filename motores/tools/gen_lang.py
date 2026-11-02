@@ -46,7 +46,7 @@ def pieces(s):
 def falta(tab):
     have = {r[0] for r in tab}
     seen = []
-    for f in ("fg_box.c", "fg_box_draw.c"):
+    for f in ("fg_box.c", "fg_box_draw.c", "fg_cand.c"):
         for lit in re.findall(r'"((?:[^"\\]|\\.)*)"', (SRC / f).read_text()):
             if not re.search(r"[A-ZÁÉÍÓÚÑ]{2}", lit) or lit.startswith("\\1"):
                 continue

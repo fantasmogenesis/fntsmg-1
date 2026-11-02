@@ -61,6 +61,7 @@ void fg_mix_perf(fg_mix_t *m, uint32_t flags)
 {
     if ((flags & FGP_RISER) && !(m->perf & FGP_RISER)) { m->riser_t = 0; m->rs.lo = m->rs.bp = 0; }
     if ((flags & (FGP_LP | FGP_HP)) && !(m->perf & (FGP_LP | FGP_HP))) m->fsweep = 0;
+    if ((flags & FGP_FREEZE) && !(m->perf & FGP_FREEZE)) m->frz_t = 0;
     m->perf = flags;
 }
 
@@ -195,7 +196,10 @@ void fg_mix_render(fg_mix_t *m, int32_t *const in[FG_TRACKS], int32_t *outl, int
         m->dr[m->dpos] = (int16_t)fg_clamp16(fg_mul15(m->dlpl, fb));
         m->dpos = (m->dpos + 1u) & (FG_DLEN - 1u);
 #endif
-        int32_t rin = freeze ? 0 : rs[i] >> 3, wl = 0, wr = 0;
+        /* CONGELA: lo que suena al prenderlo (la mezcla entera, ~90 ms) entra a la reverb, que ya no suelta nada:
+         * queda sonando como un pad, encima de lo que sigue */
+        int32_t rin = freeze ? (m->frz_t < 4096u ? (L[i] + R[i]) >> 3 : 0) : rs[i] >> 3, wl = 0, wr = 0;
+        if (freeze) m->frz_t++;
 #if FG_REV_HALF
         /* un paso de reverb cada dos muestras con el promedio de las dos; la salida interpola entre los dos
          * últimos pasos (1.5 muestras de retraso) */
@@ -215,7 +219,8 @@ void fg_mix_render(fg_mix_t *m, int32_t *const in[FG_TRACKS], int32_t *outl, int
         for (int c = 0; c < 4; c++) { wl += comb(&m->cl[c], rin, rfb, damp); wr += comb(&m->cr[c], rin, rfb, damp); }
         for (int a = 0; a < 2; a++) { wl = allpass(&m->al[a], wl); wr = allpass(&m->ar[a], wr); }
 #endif
-        L[i] += yl + (wl >> 1); R[i] += yr + (wr >> 1);
+        if (freeze) { L[i] += yl + wl + (wl >> 1); R[i] += yr + wr + (wr >> 1); }   /* (congelado, más fuerte) */
+        else { L[i] += yl + (wl >> 1); R[i] += yr + (wr >> 1); }
     }
 
     /* subida: ruido por una banda que sube de 300 Hz a 9 kHz en 3 s */
