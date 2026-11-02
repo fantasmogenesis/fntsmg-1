@@ -1,4 +1,4 @@
-// Grabar: el visual a 1080×1080 con el audio USB del FM-1 («Felucca», estéreo 44.1 kHz) en un solo video. El audio se
+// Grabar: el visual a 1080×1080 con el audio USB del FM-1 («FNTSMG-1», antes «Felucca»; estéreo 44.1 kHz) en un solo video. El audio se
 // pide sin cancelación de eco, sin supresión de ruido y sin control de ganancia: así llega igual que sale del aparato.
 // MP4 si el navegador lo graba, si no WebM. El modo escenario es el visual a pantalla completa con el botón de grabar.
 import { h, icono, aviso, bajarArchivo, preguntar } from './util.js';
@@ -23,7 +23,7 @@ export function montar(el) {
   return () => { offs.forEach(f => f()); cancelAnimationFrame(medT); };
 }
 
-/* Chrome solo da los nombres de las entradas cuando ya hay permiso de micrófono: si ya lo hay, se busca «Felucca» sola */
+/* Chrome solo da los nombres de las entradas cuando ya hay permiso de micrófono: si ya lo hay, se busca sola (FNTSMG-1 o Felucca) */
 async function arrancarAudio() {
   if (stream || elegida === 'nada' || !navigator.mediaDevices?.enumerateDevices) return;
   let ok = false;
