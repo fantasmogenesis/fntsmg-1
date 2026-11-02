@@ -2,7 +2,7 @@
 // como archivo. El respaldo completo (banco, ranuras y samples) se guarda en esta computadora y se puede bajar como
 // archivo .fntsmg; devolverlo escribe todo de regreso (por ejemplo, después de reinstalar el firmware).
 import { h, icono, aviso, explicar, preguntar, bajarArchivo, kb } from './util.js';
-import { t, fecha } from '../i18n.js';
+import { t, fecha, cuenta } from '../i18n.js';
 import { E, on, conProtocolo, asegurarParado, releer, OBJ } from '../estado.js';
 import { versionDe } from '../proyecto.js';
 import { Esc } from '../proto.js';
@@ -116,7 +116,7 @@ function abrirArchivoRespaldo() {
 }
 async function devolver(r) {
   const n = r.ranuras.slice(0, 16).filter(Boolean).length;
-  if (!await preguntar(t('pro.devolverTitulo'), t('pro.devolverTexto', { n, s: r.samples.length }), t('pro.devolver'))) return;
+  if (!await preguntar(t('pro.devolverTitulo'), t('pro.devolverTexto', { n: cuenta(n, 'cnt.ranura'), s: cuenta(r.samples.length, 'cnt.sample') }), t('pro.devolver'))) return;
   const ok = await trabajo(t('pro.devolviendo'), async prog => {
     const c = E.cliente, total = 1 + n + r.samples.length;
     let hecho = 0; const paso = () => prog(++hecho / total);
@@ -162,7 +162,7 @@ function dibujar() {
       h('button.btn', { disabled: !conProtocolo() || !!tarea, onclick: respaldar }, icono('copia'), t('pro.respaldar')))));
   if (!respaldos.length) rp.append(h('div.vacio', {}, icono('copia'), h('b', {}, t('pro.sinRespaldos')), h('span.chico', {}, t('pro.sinRespaldosAyuda'))));
   else rp.append(h('div.lista', {}, ...respaldos.map(r => h('div', {},
-    h('span.nom', {}, fecha(r.fecha)), h('span.muted.chico', {}, t('pro.resumen', { r: r.ranuras.slice(0, 16).filter(Boolean).length, s: r.samples.length, v: r.version || '' })),
+    h('span.nom', {}, fecha(r.fecha)), h('span.muted.chico', {}, t('pro.resumen', { r: cuenta(r.ranuras.slice(0, 16).filter(Boolean).length, 'cnt.proyecto'), s: cuenta(r.samples.length, 'cnt.sample'), v: r.version || '' })),
     h('button.btn.g.mini', { disabled: !conProtocolo() || !!tarea, onclick: () => devolver(r) }, t('pro.devolver')),
     h('button.ico', { 'aria-label': t('pro.bajarArchivo'), onclick: () => bajarRespaldo(r) }, icono('bajar')),
     h('button.ico', { 'aria-label': t('borrar'), onclick: () => borrarRespaldo(r) }, icono('basura'))))));

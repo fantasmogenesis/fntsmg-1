@@ -3,12 +3,20 @@
 // espejo), guarda sus ranuras, banco y samples en esta computadora y se porta como el aparato en lo que importa:
 // la flash solo se escribe parado, un traslado a la vez, la misma orden repetida no se aplica dos veces.
 import { CMD, OBJ, PAG, Esc, Lec, unpack7, crc32, mensaje, armarMeta } from './proto.js';
-import { proyectoVacio, pack, unpack, packPista, unpackPista, leerRegistro, F, off, NS } from './proyecto.js';
-import { meta, objetivo, perillasMotor, presets, SAMPLE_M, esSinte, sampleEn, resolver } from './meta.js';
+import { proyectoVacio, pack, unpack, packPista, unpackPista, leerRegistro, F, off, NS, kitTomar, kitPoner } from './proyecto.js';
+import { meta, objetivo, perillasMotor, presets, SAMPLE_M, esSinte, sampleEn, resolver, reemplazo } from './meta.js';
 import * as alm from './almacen.js';
 
 const RANURA = 8192 - 12, ZONA = 136 * 1024, SECTOR = 4096;
 const r = () => Math.random();
+
+/* la demo es una 0.10 con los motores nuevos: abre cualquier versión, la guarda en v9 y cambia los motores que salieron */
+function abrir(b) {
+  const pr = unpack(b);
+  pr.ver = 9;
+  for (let t = 0; t < 8; t++) { pr.song[F.model + t] = reemplazo(t, pr.song[F.model + t]); for (const k of pr.kits) k[t] = reemplazo(t, k[t]); }
+  return pr;
+}
 
 export class AparatoDemo {
   constructor() {
@@ -27,7 +35,7 @@ export class AparatoDemo {
   async iniciar() {
     const e = await alm.leer('demo');
     if (e) {
-      try { this.pr = unpack(e.pr); } catch (err) { this.pr = ejemplo(); }
+      try { this.pr = abrir(e.pr); } catch (err) { this.pr = ejemplo(); }
       this.ranuras = e.ranuras || this.ranuras; this.banco = e.banco || []; this.samples = e.samples || this.samples; this.ajustes = e.ajustes || this.ajustes;
     } else {
       this.pr = ejemplo();
@@ -56,6 +64,13 @@ export class AparatoDemo {
       this.cambios = 0; this._pp = 0;
     }, 100);
   }
+  /* entrar a un patrón: su sonido pasa a la canción; uno vacío sin sonido propio toma el del que suena (kit_inherit) */
+  _entrar(n) {
+    const pr = this.pr, cur = pr.song[F.cur] % 16;
+    pr.kits[cur] = kitTomar(pr.song);
+    if (!(pr.kitOwn >> n & 1) && !pr.pats[n].some(tr => tr.st.some(x => x.v))) pr.kits[n] = pr.kits[cur].slice();
+    kitPoner(pr.song, pr.kits[n]); pr.song[F.cur] = n;
+  }
   _libre() { return ZONA - this.samples.reduce((a, s) => a + (s ? Math.ceil(s.datos.length / SECTOR) * SECTOR : 0), 0); }
 
   /* ---------------- el protocolo ---------------- */
@@ -81,8 +96,8 @@ export class AparatoDemo {
     const pr = this.pr;
     switch (cmd) {
       case CMD.INFO:
-        e.u7(1).u7(7).u7(16).u7(8).u7(32).u7(16).u21(RANURA).u7(96).u14(512).u21(ZONA).u21(this._libre()).u7(this.ajustes.idioma).u14(this.cont).u7(this.tocando ? 2 : 0)
-          .bloque(new TextEncoder().encode('FNTSMG-1 0.9 DEMO'));
+        e.u7(1).u7(9).u7(16).u7(8).u7(32).u7(16).u21(RANURA).u7(96).u14(512).u21(ZONA).u21(this._libre()).u7(this.ajustes.idioma).u14(this.cont).u7(this.tocando ? 2 : 0)
+          .bloque(new TextEncoder().encode('FNTSMG-1 0.10 DEMO'));
         return [0, e];
       case CMD.ESCUCHA: this.escucha = l.u7(); this.escuchaHasta = performance.now() + 3000; return [0, e];
       case CMD.META: return [0, this._meta(l, e)];
@@ -94,9 +109,13 @@ export class AparatoDemo {
         let q = Math.max(gr.min, Math.min(gr.max, v));
         /* la perilla SAMPLE solo acepta lugares con sample: el más cercano hacia abajo (o hacia arriba) */
         if (pag === PAG.EDIT && sub === 0 && k === 1 && pr.song[F.model + t] === SAMPLE_M(t)) q = sampleEn(q)?.lugar ?? q;
+        /* ALGO recibe el lugar; uno que salió se cambia por su reemplazo */
+        if (pag === PAG.EDIT && k === 4) q = reemplazo(t, q);
         g.set(pr, q);
         if (pag === PAG.GLO && sub === 1 && k === 2) { this._cambio(128); this._guardar(); }
         else this._cambio(pag === PAG.SCL ? 2 : 1, pr.song[F.cur], 1 << t);
+        /* el sonido que se edita es del patrón que suena (0.10) */
+        if ([PAG.EDIT, PAG.ENV, PAG.LFO, PAG.ARP].includes(pag) || (pag === PAG.SCL && sub)) pr.kitOwn |= 1 << (pr.song[F.cur] % 16);
         this.sel = t & 7;
         return [0, e.s14(g.accion ? q : g.get(pr)).u14(this.cont)];
       }
@@ -124,7 +143,7 @@ export class AparatoDemo {
       case CMD.TRANSPORTE: {
         const q = l.u7(), v = l.u7();
         if (q === 0) { this.tocando = !!v; if (v) { this.tick = 0; this.pos.fill(-1); this.loops.fill(0); this.tAcc = 0; this.t0 = performance.now(); } else this.pos.fill(-1); }
-        else if (q === 1) { if (v > 15) throw 2; if (this.tocando) this.cola = v; else pr.song[F.cur] = v; }
+        else if (q === 1) { if (v > 15) throw 2; if (this.tocando) this.cola = v; else this._entrar(v); }
         else if (q === 2) this.mute = v | l.u7() << 7;
         else if (q === 3) this.solo = v | l.u7() << 7;
         else throw 2;
@@ -217,7 +236,7 @@ export class AparatoDemo {
     return [0, e];
   }
   _aplicar(t) {
-    if (t.o === OBJ.PROYECTO) { const p = unpack(t.datos); this.pr = p; this._cambio(8); }
+    if (t.o === OBJ.PROYECTO) { this.pr = abrir(t.datos); this._cambio(8); }
     else if (t.o === OBJ.RANURA) { unpack(t.datos); this.ranuras[t.i] = t.datos; this._cambio(32); }
     else if (t.o === OBJ.BANCO) { this.banco = this._unpackBanco(t.datos); this._cambio(16); }
     else if (t.o === OBJ.SAMPLE) {
@@ -266,7 +285,7 @@ export class AparatoDemo {
   }
   _tick() {
     const pr = this.pr, tk = this.tick++;
-    if (tk % 32 === 0 && this.cola !== 255) { pr.song[F.cur] = this.cola; this.cola = 255; this.pos.fill(-1); this._cambio(4); }
+    if (tk % 32 === 0 && this.cola !== 255) { this._entrar(this.cola); this.cola = 255; this.pos.fill(-1); this._cambio(4 | 1); }
     const p = pr.song[F.cur] % 16;
     for (let t = 0; t < 8; t++) {
       const tr = pr.pats[p][t], each = [4, 2, 1][tr.spd] || 2;
@@ -307,7 +326,7 @@ export class AparatoDemo {
 export function ejemplo() {
   const pr = proyectoVacio(), s = pr.song;
   s[F.bpm] = 124; s[F.swing] = 12;
-  [0, 1, 0, 1, 1, 6, 2, 5].forEach((m, t) => s[F.model + t] = m);
+  [0, 4, 0, 1, 1, 6, 2, 5].forEach((m, t) => s[F.model + t] = m);
   for (let t = 0; t < 8; t++) { const m = s[F.model + t], ps = presets(t, m)[t === 4 ? 3 : 1]; if (ps) ps.p.forEach((v, i) => s[off.p(t, m, i)] = v); }
   const P = pr.pats[0];
   P.forEach(tr => tr.len = 16);
@@ -329,5 +348,9 @@ export function ejemplo() {
   pr.pats[1] = pr.pats[0].map(tr => ({ len: tr.len, spd: tr.spd, st: tr.st.map(x => ({ ...x, lk: Uint8Array.from(x.lk), au: x.au.map(a => [...a]) })) }));
   [2, 6, 10, 14].forEach(i => pr.pats[1][0].st[i].v = i === 14 ? 1 : 0);
   pr.pats[1][1].st[7].v = 1; pr.pats[1][1].st[7].r = 2;
+  /* el sonido es de cada patrón: el 2 suena con el sinte A en DUB y la caja más abierta */
+  pr.kits = pr.kits.map(() => kitTomar(s));
+  const s2 = s.slice(); s2[F.model + 4] = 6; s2[off.mix2(1, 0)] = 90; pr.kits[1] = kitTomar(s2);
+  pr.kitOwn = 3;
   return pr;
 }

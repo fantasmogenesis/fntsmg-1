@@ -18,9 +18,16 @@ let n = 0;
 const ok = (x, m) => { assert.ok(x, m); n++; console.log('  bien:', m); };
 
 const info = await c.info();
-ok(info.protocolo === 1 && info.formato === 7 && info.tamRanura === 8180 && info.trozo === 512, `INFO ${info.version}, ranura ${info.tamRanura}, TUYOS ${info.zona}`);
+ok(info.protocolo === 1 && info.formato === 9 && info.tamRanura === 8180 && info.trozo === 512, `INFO ${info.version}, ranura ${info.tamRanura}, TUYOS ${info.zona}`);
 const pistas = await c.meta(0); ok(pistas.length === 8, 'META pistas: ' + pistas.join(' · '));
 const mod = await c.meta(1, 0); ok(mod.includes('SAMPLE'), 'META modelos del bombo: ' + mod.join(' · '));
+{ const cj = await c.meta(1, 1), sy = await c.meta(1, 4);
+  ok(cj.length === 5 && cj[1] === '' && sy.length === 16 && sy[3] === '' && sy[4] === '', 'META modelos por lugar: ' + cj.join(' · ') + ' / ' + sy.filter(Boolean).length + ' sintes'); }
+ok((await c.meta(5, 2)).length === 0, 'TEXTURAS vacío');
+{ const m4 = await c.perilla(4, PAG.EDIT, 0, 4, 3), m1 = await c.perilla(1, PAG.EDIT, 0, 4, 1);
+  ok(m4 === 11 && m1 === 4, `ALGO con un lugar que salió: CUERDAS → ${m4}, APLAUSO → ${m1}`);
+  const pn = await c.meta(2, 4, PAG.EDIT, 0); ok(pn.map(x => x.nombre).join() === 'NOTA,POSICIÓN,TORCER,MOVIMIENTO', 'perillas de TABLA: ' + pn.map(x => x.nombre).join(' · '));
+  await c.perilla(4, PAG.EDIT, 0, 4, 0); await c.perilla(1, PAG.EDIT, 0, 4, 0); }
 const per = await c.meta(2, 4, PAG.EDIT, 0); ok(per.length === 4 && per[0].nombre, 'META perillas sinte A: ' + per.map(x => `${x.nombre}[${x.min}..${x.max}]`).join(' '));
 ok(typeof await c.meta(3, 0, PAG.GLO, 0, 0, 120) === 'string', 'META valor');
 const pre = await c.meta(4, 4, 0); ok(pre.length > 3, `META presets (${pre.length}): ${pre.slice(0, 4).join(' · ')}…`);
@@ -45,6 +52,18 @@ ok(cam && cam.que & 1 && cam.contador > 0, `CAMBIO al girar una perilla en el ap
 ok((await c.perilla(4, PAG.ARP, 0, 3, 1)) === 1 && (await c.perillas(4, PAG.ARP, 0))[3] === 1, 'HOLD: SOSTENER del sinte A prendido');
 ok((await c.meta(2, 4, PAG.ARP, 0))[3].nombre === 'SOSTENER', 'META: la perilla se llama SOSTENER');
 await c.perilla(4, PAG.ARP, 0, 3, 0);
+/* 0.10: el sonido es de cada patrón. Se cambia el volumen del bombo en el patrón 4, y el patrón 1 conserva el suyo */
+const correr = ms => new Promise(r => { p.stdin.write(`t ${ms}\n`); setTimeout(r, 120); });   /* que el audio del aparato procese el cambio */
+await c.perilla(0, PAG.ENV, 0, 0, 100);
+await c.transporte(1, 3); await correr(60); await c.perilla(0, PAG.ENV, 0, 0, 30); await correr(60);
+await c.transporte(1, 0); await correr(60); const v1 = (await c.perillas(0, PAG.ENV, 0))[0];
+await c.transporte(1, 3); await correr(60); const v4 = (await c.perillas(0, PAG.ENV, 0))[0];
+ok(v1 === 100 && v4 === 30, `sonido por patrón: volumen del bombo ${v1} en el 1 y ${v4} en el 4`);
+const pk = unpack(await c.leerObjeto(OBJ.PROYECTO, 0)); ok(pk.ver === 9 && pk.kits[0][72] === 100 && pk.kits[3][72] === 30, 'v9: los sonidos de cada patrón en el proyecto');
+await c.transporte(1, 0); await correr(60);
+/* ARP: MODO 0 = NO y página 2 */
+ok((await c.perilla(4, PAG.ARP, 0, 0, 2)) === 2 && (await c.perilla(4, PAG.ARP, 0, 0, 0)) === 0, 'ARP MODO 2 y luego NO');
+ok((await c.meta(2, 4, PAG.ARP, 1)).map(x => x.nombre).join() === 'DURACIÓN,REPETIR,PROBABILIDAD,ACENTO', 'ARP página 2: DURACIÓN, REPETIR, PROBABILIDAD, ACENTO');
 /* PASO con locks y automatización, leído de vuelta con PISTA */
 const s = pasoVacio(); s.v = 2; s.p = 60; s.r = 3; s.u = -2; s.lk[1] = 90; s.lk[9] = 20; s.au = [[2, 70]];
 await c.paso(3, 4, 5, registro(s));

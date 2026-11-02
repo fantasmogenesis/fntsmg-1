@@ -2,7 +2,7 @@
 // del aparato (mono, ADPCM IMA en bloques de 64, como gen_samples.py). El medidor cuenta en sectores de 4 KB, que es
 // como el FM-1 aparta la zona. Se manda parado (la flash solo se escribe sin tocar) y se guarda una copia en la compu.
 import { h, icono, aviso, explicar, preguntar, bajarArchivo, kb } from './util.js';
-import { t } from '../i18n.js';
+import { t, cuenta } from '../i18n.js';
 import { E, on, conProtocolo, asegurarParado, refrescarSamples, perilla as mandar, OBJ } from '../estado.js';
 import { meta, SAMPLE_M } from '../meta.js';
 import { PAG } from '../proto.js';
@@ -11,7 +11,10 @@ import { codificar, decodificar, bytesPara } from '../adpcm.js';
 import * as alm from '../almacen.js';
 
 const TASAS = [44100, 32000, 22050, 16000, 11025], SECTOR = 4096, LUGARES = 32;
+const khz = r => ({ 44100: '44.1', 32000: '32', 22050: '22', 16000: '16', 11025: '11' })[r] ?? (r / 1000).toFixed(1);
 let raiz, items = [], lista = null, listaErr = null, ac = null, sonando = null, ultimo = null;
+/* las texturas que antes venían en el banco TEXTURAS (rev. 8): se eligen y se mandan a TUYOS */
+let fab = null, elegidas = new Set(), fabProg = 0;
 const audio = () => (ac ||= new (globalThis.AudioContext || globalThis.webkitAudioContext)());
 
 export function montar(el) {
@@ -29,6 +32,9 @@ async function leerLista() {
 const zona = () => E.info?.zona || 136 * 1024;
 const sectores = b => Math.ceil(b / SECTOR) * SECTOR;
 const usadoAparato = () => lista ? zona() - lista.libre : 0;
+const yaEnTuyos = x => (lista?.samples || []).some(s => s.nombre === x.nombre);
+const bytesFab = x => sectores(bytesPara(x.muestras));
+const pendFab = () => (fab || []).filter(x => elegidas.has(x.archivo)).reduce((a, x) => a + bytesFab(x), 0);
 const libres = () => { const u = new Set([...(lista?.samples || []).map(s => s.indice), ...items.map(i => i.lugar)]); return [...Array(LUGARES).keys()].filter(i => !u.has(i)); };
 
 /* ---- convertir ---- */
@@ -83,6 +89,41 @@ async function enviar(it) {
     await leerLista(); refrescarSamples();
   } catch (err) { it.prog = 0; aviso(explicar(err), { mal: true }); dibujar(); }
 }
+async function leerFab() {
+  try { fab = await (await fetch('texturas/texturas.json')).json(); } catch (e) { fab = []; }
+  dibujar();
+}
+/* los WAV de fábrica ya vienen recortados, en mono de 16 bits y a su tasa: van tal cual, sin normalizar */
+async function pcmFab(x) {
+  const v = new DataView(await (await fetch('texturas/' + x.archivo)).arrayBuffer());
+  let i = 12;
+  while (i + 8 <= v.byteLength) { const id = String.fromCharCode(v.getUint8(i), v.getUint8(i + 1), v.getUint8(i + 2), v.getUint8(i + 3)), n = v.getUint32(i + 4, true); if (id === 'data') return new Int16Array(v.buffer.slice(i + 8, i + 8 + n)); i += 8 + n + (n & 1); }
+  throw new Error('wav');
+}
+async function oirFab(x) {
+  pararOir();
+  const y = await pcmFab(x), b = audio().createBuffer(1, y.length, x.tasa), d = b.getChannelData(0);
+  for (let i = 0; i < y.length; i++) d[i] = y[i] / 32768;
+  const src = audio().createBufferSource(); src.buffer = b; src.connect(audio().destination); src.start(); sonando = src;
+}
+async function mandarFab() {
+  const l = fab.filter(x => elegidas.has(x.archivo) && !yaEnTuyos(x));
+  try {
+    await asegurarParado();
+    for (const [k, x] of l.entries()) {
+      const lugar = libres()[0];
+      if (lugar === undefined) throw Object.assign(new Error('NO_CABE'), { codigo: 'NO_CABE' });
+      const datos = codificar(await pcmFab(x)), extra = new Esc().u21(x.tasa).u21(x.muestras).u7(x.nota).u7(0).u21(0).u21(0).b;
+      await E.cliente.escribirObjeto(OBJ.SAMPLE, lugar, datos, { nombre: x.nombre, extra }, p => { fabProg = (k + p) / l.length; pintarFab(); });
+      await alm.escribir('sample:' + lugar, { nombre: x.nombre, datos, tasa: x.tasa, muestras: x.muestras, raiz: x.nota, lazo: 0, lazoIni: 0, lazoFin: 0, fecha: Date.now() });
+      elegidas.delete(x.archivo);
+      lista = await E.cliente.lista(OBJ.SAMPLE);
+    }
+    aviso(t('smp.fabListo', { n: l.length }));
+  } catch (err) { aviso(explicar(err), { mal: true }); }
+  fabProg = 0; await leerLista(); refrescarSamples();
+}
+function pintarFab() { const i = raiz?.querySelector('.prog.fab i'); if (i) i.style.width = (fabProg * 100) + '%'; }
 async function borrarDelAparato(s) {
   if (!await preguntar(t('smp.borrarTitulo', { n: s.nombre }), t('smp.borrarTexto'), t('borrar'))) return;
   try { await asegurarParado(); await E.cliente.borrar(OBJ.SAMPLE, s.indice); await alm.borrar('sample:' + s.indice); await leerLista(); refrescarSamples(); }
@@ -106,7 +147,7 @@ function wav(y, rate) {
 function dibujar() {
   if (!raiz) return;
   raiz.replaceChildren();
-  const pend = items.reduce((a, it) => a + sectores(bytesDe(it)), 0), usado = usadoAparato(), Z = zona(), libre = Z - usado - pend;
+  const pend = items.reduce((a, it) => a + sectores(bytesDe(it)), 0) + pendFab(), usado = usadoAparato(), Z = zona(), libre = Z - usado - pend;
   const med = h('div', { style: { display: 'grid', gap: '6px' } },
     h('div.medidor', { role: 'meter', 'aria-valuemin': 0, 'aria-valuemax': Z, 'aria-valuenow': usado + pend, 'aria-label': t('smp.espacio') },
       h('i', { style: { width: (usado * 100 / Z) + '%', background: 'var(--ink)' } }), h('i', { style: { width: (Math.min(pend, Z - usado) * 100 / Z) + '%', background: libre < 0 ? 'var(--rec)' : 'var(--cobalt)' } })),
@@ -127,7 +168,7 @@ function dibujar() {
     h('p', {}, h('b', {}, t('smp.enviado', { n: ultimo.nombre, l: ultimo.indice + 1 })), ' ', t('smp.dondeQueda')),
     botonProbar(ultimo.indice, ultimo.nombre), h('button.ico', { 'aria-label': t('cerrar'), onclick: () => { ultimo = null; dibujar(); } }, icono('x'))));
   raiz.append(zonaSoltar, ...items.map(editor));
-  raiz.append(panelAparato());
+  raiz.append(panelFab(libre), panelAparato());
 }
 function editor(it) {
   const p = h('section.panel', {});
@@ -142,7 +183,7 @@ function editor(it) {
       h('button.ico', { 'aria-label': t('quitar'), onclick: () => { items = items.filter(x => x !== it); dibujar(); } }, icono('x')))),
     onda,
     h('div.fila', {},
-      h('div.seg', { role: 'group', 'aria-label': t('smp.tasa') }, ...TASAS.map(r => h('button', { 'aria-pressed': it.tasa === r, onclick: () => { it.tasa = r; dibujar(); } }, ({ 44100: '44.1', 32000: '32', 22050: '22', 16000: '16', 11025: '11' })[r] + ' kHz'))),
+      h('div.seg', { role: 'group', 'aria-label': t('smp.tasa') }, ...TASAS.map(r => h('button', { 'aria-pressed': it.tasa === r, onclick: () => { it.tasa = r; dibujar(); } }, khz(r) + ' kHz'))),
       h('label.fila.chico', {}, h('input', { type: 'checkbox', checked: it.normalizar, onchange: e => it.normalizar = e.target.checked }), t('smp.normalizar')),
       h('label.fila.chico', {}, h('input', { type: 'checkbox', checked: !!it.lazo, onchange: e => it.lazo = e.target.checked ? 1 : 0 }), t('smp.lazo')),
       lugares),
@@ -187,6 +228,25 @@ function botonProbar(indice, nombre) {
     catch (err) { aviso(explicar(err), { mal: true }); }
   } }, icono('tocar'), t('smp.probarEn', { p: meta.pistas[tk] }));
 }
+function panelFab(libre) {
+  if (!fab) { leerFab(); return h('div'); }
+  if (!fab.length) return h('div');
+  const sel = fab.filter(x => elegidas.has(x.archivo)), cabe = libre >= 0, ocupado = fabProg > 0;
+  const p = h('section.panel', {}, h('header', {}, h('div', {}, h('h3', {}, t('smp.fab')), h('p.muted.chico', {}, t('smp.fabAyuda')))));
+  p.append(h('div.lista', {}, ...fab.map(x => {
+    const ya = yaEnTuyos(x);
+    return h('label.fab', { 'data-ya': ya ? 1 : 0 },
+      h('input', { type: 'checkbox', checked: ya || elegidas.has(x.archivo), disabled: ya || ocupado, onchange: e => { e.target.checked ? elegidas.add(x.archivo) : elegidas.delete(x.archivo); dibujar(); } }),
+      h('span.nom', {}, x.nombre),
+      h('span.muted.chico', {}, ya ? t('smp.fabYa') : `${(x.muestras / x.tasa).toFixed(1)} s · ${khz(x.tasa)} kHz · ${kb(bytesFab(x))}`),
+      h('button.ico', { type: 'button', 'aria-label': t('smp.oir') + ' ' + x.nombre, onclick: e => { e.preventDefault(); oirFab(x); } }, icono('tocar')));
+  })));
+  p.append(h('div.prog.fab', {}, h('i', { style: { width: (fabProg * 100) + '%' } })),
+    h('div.fila', { style: { justifyContent: 'space-between' } },
+      h('span.chico', { style: { color: cabe ? '' : 'var(--rec)' } }, !sel.length ? t('smp.fabElige') : cabe ? t('smp.fabElegidas', { n: cuenta(sel.length, 'cnt.textura'), k: kb(pendFab()) }) : t('smp.fabNoCaben')),
+      h('button.btn', { disabled: !conProtocolo() || !sel.length || !cabe || ocupado, onclick: mandarFab }, icono('subir'), t('smp.fabMandar', { n: sel.length }))));
+  return p;
+}
 function panelAparato() {
   const p = h('section.panel', {}, h('header', {}, h('div', {}, h('h3', {}, t('smp.tuyos')), h('p.muted.chico', {}, t('smp.tuyosAyuda'))), h('button.ico', { 'aria-label': t('reintentar'), onclick: leerLista }, icono('reloj'))));
   if (!conProtocolo()) { p.append(h('div.vacio', {}, icono('usb'), t('smp.conecta'))); return p; }
@@ -194,7 +254,7 @@ function panelAparato() {
   if (!lista) { p.append(h('p.muted', {}, t('cargando'))); return p; }
   if (!lista.samples.length) { p.append(h('div.vacio', {}, icono('onda'), h('b', {}, t('smp.vacio')), h('span.chico', {}, t('smp.vacioAyuda')))); return p; }
   p.append(h('div.lista', {}, ...lista.samples.map(s => h('div', {}, h('span.n', {}, s.indice + 1), h('span.nom', {}, s.nombre),
-    h('span.muted.chico', {}, `${(s.muestras / s.tasa).toFixed(2)} s · ${(s.tasa / 1000).toFixed(1)} kHz · ${kb(s.bytes)}`),
+    h('span.muted.chico', {}, `${(s.muestras / s.tasa).toFixed(2)} s · ${khz(s.tasa)} kHz · ${kb(s.bytes)}`),
     h('span.muted.chico', {}, t('son.lugar', { n: 96 + s.indice })), botonProbar(s.indice, s.nombre),
     h('button.ico', { 'aria-label': t('smp.bajarWav'), onclick: () => bajarWav(s) }, icono('bajar')),
     h('button.ico', { 'aria-label': t('borrar'), onclick: () => borrarDelAparato(s) }, icono('basura'))))));

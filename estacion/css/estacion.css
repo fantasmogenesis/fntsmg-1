@@ -166,7 +166,7 @@ input[type="range"]{accent-color:var(--ink);width:100%}
 
 /* ---- tarjetas y paneles ---- */
 .panel{border:1px solid var(--rule);border-radius:10px;padding:16px;display:grid;gap:14px;align-content:start;min-width:0}
-.panel>header{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.panel>header{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;min-width:0}
 .dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px}
 .pistas-tabs{display:flex;gap:4px;flex-wrap:wrap}
 .pistas-tabs button{border:1px solid var(--rule);border-radius:6px;background:none;padding:7px 10px;font:800 10px var(--f);letter-spacing:.1em;color:var(--ink-2);text-transform:uppercase}
@@ -178,6 +178,9 @@ input[type="range"]{accent-color:var(--ink);width:100%}
 .lista .nom{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lista button.fila-b{all:unset;display:flex;gap:10px;align-items:center;flex:1;min-width:0;cursor:pointer}
 .lista>.on{background:var(--paper-2)}
+.lista label.fab{cursor:pointer}
+.lista label.fab[data-ya="1"]{cursor:default;color:var(--ink-3)}
+.lista label.fab input{accent-color:var(--cobalt);width:16px;height:16px;flex:none}
 .vacio{border:1px dashed var(--rule);border-radius:10px;padding:28px 18px;text-align:center;color:var(--ink-2);display:grid;gap:10px;justify-items:center}
 .vacio svg.i{width:28px;height:28px;stroke-width:1.4;color:var(--ink-3)}
 .tiras{display:grid;grid-template-columns:repeat(8,minmax(124px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px}
@@ -241,8 +244,8 @@ input[type="range"]{accent-color:var(--ink);width:100%}
 .avisos{position:fixed;right:16px;bottom:16px;z-index:60;display:grid;gap:8px;max-width:min(380px,calc(100vw - 32px))}
 .aviso{background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 14px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center}
 .aviso.mal{background:var(--rec);color:#fff}
-.aviso button{color:inherit;border-color:currentColor}
-dialog{border:1px solid var(--rule);border-radius:14px;background:var(--paper);color:var(--ink);padding:0;max-width:min(560px,calc(100vw - 32px));width:100%}
+.aviso .btn.g,.aviso button{color:inherit;border-color:currentColor;white-space:nowrap}
+dialog{margin:auto;border:1px solid var(--rule);border-radius:14px;background:var(--paper);color:var(--ink);padding:0;max-width:min(560px,calc(100vw - 32px));width:100%}
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .cuerpo{padding:20px;display:grid;gap:14px}
 dialog ol{padding-left:20px;display:grid;gap:8px}
@@ -265,6 +268,7 @@ dialog ol{padding-left:20px;display:grid;gap:8px}
   .banda{padding:8px 12px;gap:8px}.banda p{font-size:13px;flex-basis:100%}
   .lista>*{flex-wrap:wrap;row-gap:6px}
   .lista .nom{flex-basis:calc(100% - 40px)}
+  .lista label.fab .nom{flex-basis:auto}
   .rejilla .fila-p,.regla,.carril{grid-template-columns:84px repeat(var(--n,16),var(--cell))}
   .rejilla .fila-p{min-height:46px}
   .c.q,.regla span.q{margin-left:3px}
@@ -274,8 +278,8 @@ dialog ol{padding-left:20px;display:grid;gap:8px}
   .insp .perillas{--np:4}
   .insp .disp{grid-template-columns:1fr}
   .insp .disp label{grid-template-columns:96px 1fr auto}
-  .seg{flex-wrap:nowrap}
-  .perillas{--np:4}
+  .seg{flex-wrap:nowrap;max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .perillas{--np:4 !important}   /* gana al --np que la sección pone en línea */
   .kn svg{width:48px;height:48px}
   .tiras{grid-template-columns:repeat(8,minmax(108px,1fr))}
   .canal{height:190px}

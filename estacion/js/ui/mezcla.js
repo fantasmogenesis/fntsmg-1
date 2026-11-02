@@ -96,7 +96,7 @@ function dibujar() {
         h('select.sel', { 'aria-label': t('mez.veces'), disabled: p === 255, onchange: e => mandar(r, PAG.CADENA, 0, 1, +e.target.value) },
           ...Array.from({ length: 16 }, (_, i) => h('option', { value: i + 1, selected: rep === i + 1 }, '×' + (i + 1)))));
     }).slice(0, Math.min(16, Math.max(4, [...Array(16).keys()].reverse().find(r => s[F.crow + r] !== 255) + 2 || 4)))));
-  raiz.append(h('div.top', {}, h('div', {}, h('div.eyebrow', {}, 'ENV · FX · GLO'), h('h1', {}, t('mez.titulo')))),
+  raiz.append(h('div.top', {}, h('div', {}, h('div.eyebrow', {}, E.pr.ver >= 8 ? t('mez.dePatron', { n: (E.pr.song[F.cur] % 16) + 1 }) : 'ENV · FX · GLO'), h('h1', {}, t('mez.titulo')))),
     h('section.panel', {}, h('header', {}, h('div', {}, h('h3', {}, t('mez.mezcla')), h('p.muted.chico', {}, t('mez.mezclaAyuda'))),
       h('button.btn.g.mini', { 'aria-expanded': verMas, onclick: () => { verMas = !verMas; pref('mezMas', verMas); dibujar(); } }, t(verMas ? 'mez.menos' : 'mez.mas'))), tiras),
     h('div.dos', {}, fx, glo), cad);

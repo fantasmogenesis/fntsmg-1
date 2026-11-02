@@ -1,0 +1,79 @@
+[
+ {
+  "nombre": "CORO",
+  "archivo": "coro.wav",
+  "tasa": 16000,
+  "nota": 60,
+  "muestras": 33600
+ },
+ {
+  "nombre": "CAMPANAS",
+  "archivo": "campanas-lejanas.wav",
+  "tasa": 22050,
+  "nota": 60,
+  "muestras": 46306
+ },
+ {
+  "nombre": "CINTA",
+  "archivo": "cinta.wav",
+  "tasa": 11025,
+  "nota": 55,
+  "muestras": 23153
+ },
+ {
+  "nombre": "VIDRIO",
+  "archivo": "vidrio.wav",
+  "tasa": 16000,
+  "nota": 60,
+  "muestras": 33600
+ },
+ {
+  "nombre": "MAR GRAVE",
+  "archivo": "mar-grave.wav",
+  "tasa": 11025,
+  "nota": 60,
+  "muestras": 23153
+ },
+ {
+  "nombre": "METAL ARCO",
+  "archivo": "metal-arco.wav",
+  "tasa": 22050,
+  "nota": 64,
+  "muestras": 46306
+ },
+ {
+  "nombre": "HIELO",
+  "archivo": "hielo.wav",
+  "tasa": 16000,
+  "nota": 60,
+  "muestras": 33600
+ },
+ {
+  "nombre": "TEXTURE PAD",
+  "archivo": "texture-pad.wav",
+  "tasa": 11025,
+  "nota": 59,
+  "muestras": 23153
+ },
+ {
+  "nombre": "PAD 23",
+  "archivo": "pad-23.wav",
+  "tasa": 22050,
+  "nota": 57,
+  "muestras": 46306
+ },
+ {
+  "nombre": "PAD 25",
+  "archivo": "pad-25.wav",
+  "tasa": 22050,
+  "nota": 65,
+  "muestras": 46306
+ },
+ {
+  "nombre": "PAD 4",
+  "archivo": "pad-4.wav",
+  "tasa": 22050,
+  "nota": 62,
+  "muestras": 46306
+ }
+]

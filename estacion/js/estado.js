@@ -131,6 +131,8 @@ async function nombresDelAparato() {
   try {
     const p = await c.meta(0); if (p.length === 8) meta.pistas = p;
     for (let t = 0; t < 8; t++) { const m = await c.meta(1, t); if (m.length) meta.modelos[t] = m; }
+    /* el orden de ALGO de la tabla es el de los motores nuevos (formato 9); un 0.9 los recorre por lugar */
+    if ((E.info?.formato ?? 9) < 9) meta.orden = meta.modelos.map(l => l.map((_, i) => i));
     for (let b = 0; b < 4; b++) { const s = await c.meta(5, b); if (Array.isArray(s)) meta.samples[b] = s; }
     emit('meta');
     await nombresPerillas();
@@ -215,7 +217,8 @@ export function patron(n) {
   E.patron = n;
   if (!E.tocando) { E.cur = n; if (E.pr) E.pr.song[F.cur] = n; } else E.cola = n;
   emit('estado', true);
-  if (conProtocolo()) return ultimo('pat', () => E.cliente.transporte(1, n));
+  /* en la 0.10 el sonido es de cada patrón: parado, el cambio es inmediato y hay que releer (el CAMBIO es propio) */
+  if (conProtocolo()) return ultimo('pat', async () => { await E.cliente.transporte(1, n); if (!E.tocando && E.pr?.ver >= 8) { await new Promise(r => setTimeout(r, 120)); await releer(); } });
 }
 export function mutes(m, s) {
   E.mute = m; E.solo = s; emit('estado', true);

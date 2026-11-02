@@ -5,7 +5,7 @@ import { botonHold } from './secuencia.js';
 import { t } from '../i18n.js';
 import { E, on, emit, perilla as mandar, elegirPista, hayProyecto, conProtocolo, asegurarParado, OBJ } from '../estado.js';
 import { F, off } from '../proyecto.js';
-import { meta, presets, objetivo, resolver, esSinte, perillasMotor, SAMPLE_M, sampleEn, BANCOS } from '../meta.js';
+import { meta, presets, objetivo, resolver, esSinte, perillasMotor, SAMPLE_M, sampleEn, BANCOS, motoresEnOrden } from '../meta.js';
 import { PAG } from '../proto.js';
 
 let raiz, banco = null, bancoErr = null, presetsAp = {};
@@ -41,7 +41,7 @@ function dibujar() {
   if (!hayProyecto()) return;
   const tk = E.sel, pr = E.pr, m = pr.song[F.model + tk], ps = listaPresets(tk, m);
   const tabs = h('div.pistas-tabs', { role: 'tablist' }, ...meta.pistas.map((n, i) => h('button', { role: 'tab', 'aria-pressed': i === tk, 'aria-selected': i === tk, onclick: () => elegirPista(i) }, n)));
-  const modelos = h('div.seg', { role: 'group', 'aria-label': t('son.motor') }, ...meta.modelos[tk].map((n, i) => h('button', { 'aria-pressed': i === m, onclick: () => mandar(tk, PAG.EDIT, 0, 4, i)?.then?.(dibujar) ?? dibujar() }, n)));
+  const modelos = h('div.seg', { role: 'group', 'aria-label': t('son.motor') }, ...motoresEnOrden(tk).map(([i, n]) => h('button', { 'aria-pressed': i === m, onclick: () => mandar(tk, PAG.EDIT, 0, 4, i)?.then?.(dibujar) ?? dibujar() }, n)));
   const edit = Array.from({ length: 8 }, (_, i) => [PAG.EDIT, i >> 2, i & 3]);
   const motor = h('section.panel', {},
     h('header', {}, h('div', {}, h('div.eyebrow', {}, t('son.motor')), h('h2', {}, meta.modelos[tk][m] || '–')), modelos),
@@ -54,9 +54,11 @@ function dibujar() {
     h('div.eyebrow', {}, 'LFO 1'), grupo(tk, [0, 1, 2, 3].map(k => [PAG.LFO, 0, k]), () => 'var(--ink)', 4),
     h('div.eyebrow', {}, 'LFO 2'), grupo(tk, [0, 1, 2, 3].map(k => [PAG.LFO, 1, k]), () => 'var(--ink)', 4));
   const arp = esSinte(tk) ? h('section.panel', {}, h('header', {}, h('h3', {}, t('son.arp')), h('span.pill', {}, t(pr.song[F.arp_on] >> tk & 1 ? 'son.arpOn' : 'son.arpOff'))),
-    grupo(tk, [0, 1, 2, 3].map(k => [PAG.ARP, 0, k]), () => 'var(--ink)', 4), h('p.muted.chico', {}, t('son.arpAyuda'))) : null;
+    grupo(tk, [0, 1, 2, 3].map(k => [PAG.ARP, 0, k]), () => 'var(--ink)', 4),
+    ...(pr.ver >= 8 ? [grupo(tk, [0, 1, 2, 3].map(k => [PAG.ARP, 1, k]), () => 'var(--ink)', 4)] : []),
+    h('p.muted.chico', {}, t(pr.ver >= 8 ? 'son.arpAyuda8' : 'son.arpAyuda'))) : null;
   raiz.append(
-    h('div.top', {}, h('div', {}, h('div.eyebrow', {}, meta.pistas[tk]), h('h1', {}, t('nav.sonido'))), h('div.fila', {}, botonHold(tk), tabs)),
+    h('div.top', {}, h('div', {}, h('div.eyebrow', {}, meta.pistas[tk] + (pr.ver >= 8 ? ' · ' + t('son.dePatron', { n: (pr.song[F.cur] % 16) + 1 }) : '')), h('h1', {}, t('nav.sonido'))), h('div.fila', {}, botonHold(tk), tabs)),
     motor, h('div.dos', {}, lfo, ...(arp ? [arp] : [])), panelBanco(tk, m));
 }
 
