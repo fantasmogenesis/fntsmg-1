@@ -2124,7 +2124,7 @@ static void pats_press(fg_box_t *b, unsigned i)
         copy_pattern(b, (unsigned)b->copy_idx, i); show_ov(b, "PEGADO", v, 256); mark(b);
         return;
     }
-    b->pat_ms[i] = b->now; b->pat_done &= (uint16_t)~(1u << i);
+    b->pat_ms[i] = b->now; b->pat_done &= (uint16_t)~(1u << i); b->pat_held |= (uint16_t)(1u << i);
     if (b->s.chain_on) { b->s.chain_on = 0; send_chain(b, 0); }
     queue_pat(b, i);
     mark(b);
@@ -2204,7 +2204,7 @@ static void white_press(fg_box_t *b, unsigned i)
 static void white_release(fg_box_t *b, unsigned i)
 {
     uint16_t m = (uint16_t)(1u << i);
-    b->wdown &= (uint16_t)~m;
+    b->wdown &= (uint16_t)~m; b->pat_held &= (uint16_t)~m;
     if (b->perf_held & m) { perf_release(b, i); b->used_w &= (uint16_t)~m; return; }
     if (held(b, FB_FX)) { b->used_w &= (uint16_t)~m; return; }
     if (i < 8 && ((b->mix_armed >> i) & 1u)) {
@@ -2264,11 +2264,17 @@ void fg_box_tick(fg_box_t *b, uint32_t now)
     b->now = now;
     if (b->arec) { b->arec = 0; mark(b); }
     if (b->slot_open && now - b->slot_open_ms > 3000u) b->slot_open = 0;   /* RANURAS: el toque para abrir caduca */
-    if (b->page == PG_PATS)                              /* PATRONES: mantener una blanca 1 s la vacía */
+    if (b->pat_arm && now - b->pat_arm_ms > 3000u) b->pat_arm = 0;       /* la confirmación caduca */
+    if (b->page == PG_PATS)                              /* PATRONES: mantener una blanca 1 s pide confirmar; otra vez 1 s, la vacía */
         for (unsigned i = 0; i < FBX_NP && i < 16u; i++)
-            if (((b->wdown >> i) & 1u) && !((b->pat_done >> i) & 1u) && now - b->pat_ms[i] >= 1000u && !held_b(b, BK_COPY) && !held_b(b, BK_PASTE)) {
+            if (((b->pat_held >> i) & 1u) && !((b->pat_done >> i) & 1u) && now - b->pat_ms[i] >= 1000u && !held(b, FB_HOME) && !held_b(b, BK_COPY) && !held_b(b, BK_PASTE)) {
                 b->pat_done |= (uint16_t)(1u << i);
-                clear_pattern(b, i);
+                if (b->pat_arm == i + 1u) { b->pat_arm = 0; clear_pattern(b, i); }
+                else {
+                    char v[24]; v[0] = 0; scpy(v, "PATRÓN ", sizeof v); cati(v, (int)i + 1, sizeof v);
+                    b->pat_arm = (uint8_t)(i + 1u); b->pat_arm_ms = now;
+                    show_ov(b, v, "OTRA VEZ PARA BORRAR", 0);
+                }
             }
     long_press(b);
     /* ENV: mantener la blanca de la pista = solo */

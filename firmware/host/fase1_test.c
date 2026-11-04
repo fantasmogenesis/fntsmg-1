@@ -117,8 +117,20 @@ int main(void)
     ok(B.page == PG_PATS && B.vui.view == FG_VIEW_PAT, "HOME otra vez: los PATRONES");
     wtap(5); run(80);
     ok(B.s.cur == 5, "PATRONES: una blanca elige el patrón");
-    white(0, 1); run(1100); white(0, 0);
-    ok(!B.Q.pat[0].tr[0].st[0].v, "PATRONES: mantener una blanca 1 s la vacía");
+    for (unsigned p = 0; p < 4; p++) B.Q.pat[p].tr[0].st[0].v = 1;
+    btn(FB_HOME, 1); wtap(1); wtap(2); wtap(3); run(1500); btn(FB_HOME, 0); run(80);
+    ok(B.page == PG_PATS && B.Q.pat[1].tr[0].st[0].v && B.Q.pat[2].tr[0].st[0].v && B.Q.pat[3].tr[0].st[0].v && B.s.chain_on,
+       "PATRONES: HOME + blancas arma la cadena y no borra nada");
+    white(2, 1); run(1500); white(2, 0); run(20);
+    ok(B.Q.pat[2].tr[0].st[0].v, "PATRONES: mantener 1 s una vez no borra (pide confirmar)");
+    run(3200); white(2, 1); run(1100); white(2, 0); run(20);
+    ok(B.Q.pat[2].tr[0].st[0].v, "la confirmación caduca a los 3 s");
+    white(1, 1); run(1100); white(1, 0); run(200); white(1, 1); run(1100); white(1, 0);
+    ok(!B.Q.pat[1].tr[0].st[0].v, "otra vez 1 s antes de 3 s: lo vacía");
+    white(0, 1); run(1100); white(0, 0); white(2, 1); run(1100); white(2, 0);
+    ok(B.Q.pat[0].tr[0].st[0].v && B.Q.pat[2].tr[0].st[0].v, "confirmar con otra blanca no borra ninguna");
+    white(0, 1); run(1100); white(0, 0); white(0, 1); run(1100); white(0, 0);
+    ok(!B.Q.pat[0].tr[0].st[0].v, "PATRONES: mantener una blanca 1 s, dos veces, la vacía");
     tap(FB_HOME); run(20);
     ok(B.page == PG_EDIT, "HOME desde los PATRONES: al visual");
     btn(FB_HOME, 1); tap(FB_SEQ); btn(FB_HOME, 0); run(20);

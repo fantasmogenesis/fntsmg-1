@@ -179,8 +179,10 @@ typedef struct fg_box {
     fg_step_t copy_st;                      /* COPIAR: el paso copiado */
     uint8_t at_home;                        /* HOME llevó al visual: otro toque abre los PATRONES */
     uint8_t slot_open;                      /* RANURAS: 1 + la ranura llena que se tocó una vez (otro toque la abre) */
-    uint32_t slot_open_ms, pat_ms[16];      /* PATRONES: cuándo se apretó cada blanca (mantener 1 s = vaciar) */
-    uint16_t pat_done;
+    uint32_t slot_open_ms, pat_ms[16];      /* PATRONES: cuándo se apretó cada blanca (mantener 1 s, dos veces = vaciar) */
+    uint16_t pat_done, pat_held;            /* (pat_held: las que se apretaron en PATRONES, no con HOME ni COPIAR/PEGAR) */
+    uint8_t pat_arm;                        /* el patrón que ya pidió confirmación (+1; 0: ninguno) */
+    uint32_t pat_arm_ms;
     uint16_t hold_k[4];                     /* SOSTENER sin ARP: las blancas que se soltaron y siguen sonando, por sinte */
     uint8_t perf_last, pk[16][2];           /* el último efecto tocado y las perillas de cada uno (K1, K2; 64 = como siempre) */
     uint16_t kmov[4];                       /* cuánto se acaban de mover K1..K4 (0..256): el visual lo siente */
