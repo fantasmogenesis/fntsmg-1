@@ -124,6 +124,9 @@ function dibujar() {
           h('div.paletas', { role: 'group' }, ...Object.keys(PALETAS).map(p => h('button', { title: p, 'aria-label': p, 'aria-pressed': p === palAct, style: { background: `rgb(${PALETAS[p][1]})` }, onclick: () => { paleta(p); pref('paleta', p); dibujar(); } })))),
         h('p.muted.chico', {}, f ? t('rec.formato', { f: f.startsWith('video/mp4') ? 'MP4' : 'WebM' }) : t('rec.sinGrabador')),
         !E.tr ? h('p.muted.chico', {}, t('rec.sinAparato')) : null)),
+    h('section.panel', {}, h('h3', {}, t('rec.liveTitulo')), h('p.muted.chico', {}, t('rec.liveTxt')),   /* la plantilla de Live, siempre a la mano */
+      h('ol.pasos-live', {}, ...[1, 2, 3, 4].map(k => h('li.chico', {}, t('rec.live' + k)))),
+      h('div', {}, h('a.btn.g.mini', { href: '/fm1/descargas/FNTSMG-1.als', download: 'FNTSMG-1.als' }, icono('bajar'), t('rec.liveBajar')))),
     ...(G.tomas.length ? [h('section.panel', {}, h('h3', {}, t('rec.tomas')), h('div.lista', {}, ...G.tomas.map(x => h('div', {},
       h('video', { src: x.url, controls: true, muted: true, playsinline: true, style: { width: '96px', height: '96px', background: '#000', borderRadius: '6px' } }),
       h('span.nom', {}, x.nombre), h('span.muted.chico', {}, mmss(x.dur) + (x.audio ? '' : ' · ' + t('rec.mudo'))),
