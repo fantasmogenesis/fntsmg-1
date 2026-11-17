@@ -160,7 +160,8 @@ export class Cliente {
     const b = (await this.pedir(CMD.META, e.b)).resto();
     return leerMeta(tipo, b);
   }
-  async perilla(t, pag, sub, k, v) { const l = await this.pedir(CMD.PERILLA, new Esc().u7(t).u7(pag).u7(sub).u7(k).s14(v).b); const q = l.s14(); this.contador = l.u14(); return q; }
+  /* una perilla: si la respuesta no llega, otra vez a los 300 ms (el aparato repite su respuesta si ya la hizo): girar no se traba 1 s */
+  async perilla(t, pag, sub, k, v) { const l = await this.pedir(CMD.PERILLA, new Esc().u7(t).u7(pag).u7(sub).u7(k).s14(v).b, { intentos: 5, ms: 300 }); const q = l.s14(); this.contador = l.u14(); return q; }
   async perillas(t, pag, sub) { const l = await this.pedir(CMD.PERILLAS, [t, pag, sub]); return [l.s14(), l.s14(), l.s14(), l.s14()]; }
   paso(p, t, s, registro) { return this.cambio(CMD.PASO, new Esc().u7(p).u7(t).u7(s).bloque(registro).b); }
   /* golpes y rotar del euclidiano y después la pista empacada */

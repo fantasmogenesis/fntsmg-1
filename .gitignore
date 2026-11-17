@@ -14,3 +14,4 @@ maqueta/
 .DS_Store
 __pycache__/
 *.dSYM/
+.venv/

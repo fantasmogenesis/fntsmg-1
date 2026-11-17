@@ -59,7 +59,7 @@ static void text(const char *s0, int x, int y, int px, int maxw, uint16_t c, int
     {   /* (solo en la Mac: firmware/host/textos.c junta cada texto con la pantalla donde sale) */
         void fg_text_log(const char *s0, const char *s, int x, int y, int w, int h);
         int w = text_w(F[i], d->s);
-        fg_text_log(s0, d->s, right ? x - w : x, y, w, F[i]->asc + F[i]->desc);
+        fg_text_log(s0, d->s, right == 2 ? x - w / 2 : right ? x - w : x, y, w, F[i]->asc + F[i]->desc);
     }
 #endif
 }
@@ -68,6 +68,13 @@ static void number(const char *s, int x, int y, uint16_t c)
     if (nDL >= NDL) return;
     dcmd_t *d = &DL[nDL++];
     d->kind = D_TEXT; d->f = &FG_FONT_N; d->x = (int16_t)x; d->y = (int16_t)y; d->col = c; d->align = 0;
+    unsigned k = 0; while (s[k] && k + 1 < sizeof d->s) { d->s[k] = s[k]; k++; } d->s[k] = 0;
+}
+static void number_s(const char *s, int x, int y, uint16_t c)   /* letra chica sin traducir (la franja: P02 · 3 · R05) */
+{
+    if (nDL >= NDL) return;
+    dcmd_t *d = &DL[nDL++];
+    d->kind = D_TEXT; d->f = &FG_FONT_S; d->x = (int16_t)x; d->y = (int16_t)y; d->col = c; d->align = 0;
     unsigned k = 0; while (s[k] && k + 1 < sizeof d->s) { d->s[k] = s[k]; k++; } d->s[k] = 0;
 }
 static void dot(int x, int y, int r, uint16_t c)
@@ -193,20 +200,28 @@ void fg_box_frame(fg_box_t *b)
         }
         text("1 PATRÓN   2 VECES   4 SÍ / NO", 12, 233, 11, 216, C_DIM, 0);
     }
-    if (slotv) {                                           /* RANURAS: las 16, llenas en blanco */
+    if (slotv) {                                           /* RANURAS: las 16, llenas en blanco; la tuya con rojo abajo */
         rect(0, 0, 240, 240, C_BG);
-        text("RANURAS", 12, 25, 16, 216, C_FG, 0);
+        text("RANURAS", 12, 25, 16, 120, C_FG, 0);
+        if (b->pdirty) text("NO GUARDADO", 228, 25, 11, 100, C_RED, 1);
         rect(0, 35, 240, 1, C_LINE);
         for (int i = 0; i < 16; i++) {
-            int x = 8 + (i & 3) * 58, y = 44 + (i >> 2) * 48, full = (b->slots >> i) & 1u;
-            int arm = b->slot_open == i + 1 && ((now >> 7) & 1u);
-            rect(x, y, 50, 40, full ? C_FG : C_LINE);       /* (vacía: el borde es una caja con otra encima) */
-            if (!full || arm) rect(x + 2, y + 2, 46, 36, C_BG);
+            int x = 8 + (i & 3) * 58, y = 41 + (i >> 2) * 40, full = (b->slots >> i) & 1u;
+            int arm = b->arm && b->arm_i == i && ((now >> 7) & 1u);
+            rect(x, y, 50, 32, full ? C_FG : C_LINE);       /* (vacía: el borde es una caja con otra encima) */
+            if (!full || arm) rect(x + 2, y + 2, 46, 28, C_BG);
+            if (b->proj_slot == i + 1) rect(x, y + 34, 50, 3, C_RED);
             s1[0] = 0; cati(s1, i + 1, sizeof s1);
-            text(s1, x + 25 - text_w(&FG_FONT_M, s1) / 2, y + 26, 13, 40, full && !arm ? C_BG : full ? C_FG : C_DIM, 0);
+            text(s1, x + 25 - text_w(&FG_FONT_M, s1) / 2, y + 22, 13, 40, full && !arm ? C_BG : full ? C_FG : C_DIM, 0);
         }
+        text("SAVE + 1 A 16 = GUARDAR", 12, 214, 11, 216, C_DIM, 0);
+        text("REC + 1 A 16 = BORRAR", 12, 232, 11, 216, C_DIM, 0);
     }
-    if (u->view == FG_VIEW_PAT) {
+    if (u->view == FG_VIEW_PAT && now < b->ov.until) {     /* PATRONES: el aviso abajo, en lugar del patrón (vaciar, copiar) */
+        band(56);
+        text(b->ov.label, 12, 206, 11, 216, C_DIM, 0);
+        text(b->ov.value, 12, 232, 20, 216, C_FG, 0);
+    } else if (u->view == FG_VIEW_PAT) {
         band(34);
         s1[0] = 0;
         if (b->nhome > 1) { scpy(s1, "CADENA  ", sizeof s1); for (unsigned k = 0; k < b->nhome; k++) { if (k) scat(s1, " › ", sizeof s1); cati(s1, b->home_list[k] + 1, sizeof s1); } }
@@ -226,8 +241,8 @@ void fg_box_frame(fg_box_t *b)
     } else if (heldb(b, BK_MUTE) && !held(b, FB_FX)) {     /* MUTE: las 8 pistas, cómo están (y cuál cambia al compás) */
         uint8_t want = b->has_pend ? b->pend : b->mute;
         band(72);
-        text("SILENCIOS", 12, 190, 13, 130, C_FG, 0);
-        text(b->s.muteq ? "AL COMPÁS" : "AL INSTANTE", 228, 190, 11, 96, C_DIM, 1);
+        text("TRACKS (MUTES)", 12, 190, 13, 130, C_FG, 0);
+        text(b->s.muteq ? "AL COMPÁS" : "INMEDIATOS", 228, 190, 11, 96, C_DIM, 1);
         for (unsigned t = 0; t < 8; t++) {
             int x = 8 + (int)t * 28, so = (b->solo >> t) & 1u, off = ((want >> t) & 1u) || (b->solo && !so);
             int pend = b->has_pend && (((b->pend ^ b->mute) >> t) & 1u) && ((now >> 8) & 1u);
@@ -243,7 +258,7 @@ void fg_box_frame(fg_box_t *b)
         text(s1, 12, 226, 15, 100, C_FG, 0);
         s2[0] = 0;
         if (b->copy_kind == 3) scpy(s2, TN[b->copy_idx & 7], sizeof s2);
-        else if (b->copy_kind) { scpy(s2, b->copy_kind == 1 ? "PATRÓN " : "PASO ", sizeof s2); cati(s2, b->copy_idx + 1, sizeof s2); }
+        else if (b->copy_kind) { scpy(s2, b->copy_kind == 1 ? "PATRÓN " : b->copy_kind == 4 ? "RANURA " : "PASO ", sizeof s2); cati(s2, b->copy_idx + 1, sizeof s2); }
         else scpy(s2, "–", sizeof s2);
         text(s2, 228, 226, 13, 120, C_DIM, 1);
     } else if (b->page == PG_PASO && nhs) {
@@ -251,7 +266,7 @@ void fg_box_frame(fg_box_t *b)
         band(108);
         scpy(s1, "PASO ", sizeof s1); cati(s1, hs[0] + 1, sizeof s1); scat(s1, "  ·  ", sizeof s1); scat(s1, TN[b->sel], sizeof s1);
         text(s1, 12, 152, 13, 216, C_FG, 0);
-        static const char *const L[4] = {"CONDICIÓN", "PROBABILIDAD", "RATCHET", "MICRO"};
+        static const char *const L[4] = {"CONDICIÓN", "% AZAR", "REDOBLE", "DESFASE"};
         char V[4][16];
         scpy(V[0], CONDS[st->c < 12 ? st->c : 0], 16);
         V[1][0] = 0; cati(V[1], st->p, 16); scat(V[1], "%", 16);
@@ -262,6 +277,10 @@ void fg_box_frame(fg_box_t *b)
             text(L[k], x, y, 11, 104, C_DIM, 0);
             text(V[k], x, y + 22, 20, 104, C_FG, 0);
         }
+    } else if (now < b->ov.until && slotv) {                /* RANURAS: el aviso arriba, encima del título (las ranuras se siguen viendo) */
+        rect(0, 0, 240, 40, C_BG); rect(0, 40, 240, 1, C_LINE);
+        text(b->ov.label, 12, 15, 11, 216, C_DIM, 0);
+        text(b->ov.value, 12, 35, 16, 216, C_FG, 0);
     } else if (now < b->ov.until && u->view == FG_VIEW_MIX) {
         rect(0, 0, 240, 40, C_BG); rect(0, 40, 240, 1, C_LINE);
         int ismix = 0;
@@ -335,6 +354,30 @@ void fg_box_frame(fg_box_t *b)
             if (t == b->sel) rect(x, 229, 23, 3, C_FG);
         }
     }
+    int quiet = now >= b->ov.until && now >= b->names_until && now >= b->big_until && !nhs && !b->bdown && !b->down;
+    if (!chainv && !slotv && u->view == FG_VIEW_VIS && quiet && !b->playing && now - b->idle_ms > 4000u) {   /* reposo: parado y sin tocar */
+        text("FNTSMG-1", 14, 124, 40, 212, C_FG, 0);
+        scpy(s1, "PATRÓN ", sizeof s1); if (b->s.cur < 9) scat(s1, "0", sizeof s1); cati(s1, b->s.cur + 1, sizeof s1);
+        if (b->proj_slot) { scat(s1, " · RANURA ", sizeof s1); if (b->proj_slot < 10) scat(s1, "0", sizeof s1); cati(s1, b->proj_slot, sizeof s1); }
+        text(s1, 14, 152, 13, 212, C_DIM, 0);
+        text("PLAY PARA EMPEZAR", 14, 222, 11, 212, C_DIM, 0);
+    } else if (b->ubic && !chainv && !slotv && u->view == FG_VIEW_VIS) {   /* la franja: patrón · pista · ranura (y la página de pasos) */
+        int x0 = (b->perf >> FBX_PERF_FILL) & 1u ? 64 : 6;
+        s1[0] = 0; scpy(s1, "P", sizeof s1); if (b->s.cur < 9) scat(s1, "0", sizeof s1); cati(s1, b->s.cur + 1, sizeof s1);
+        scat(s1, " · ", sizeof s1); cati(s1, b->sel + 1, sizeof s1);
+        scat(s1, " · R", sizeof s1);
+        if (b->proj_slot) { if (b->proj_slot < 10) scat(s1, "0", sizeof s1); cati(s1, b->proj_slot, sizeof s1); } else scat(s1, "–", sizeof s1);
+        if (b->sp) { scat(s1, " · ", sizeof s1); cati(s1, b->sp * 16 + 1, sizeof s1); scat(s1, "–", sizeof s1); cati(s1, b->sp * 16 + 16, sizeof s1); }
+        rect(x0, 4, text_w(&FG_FONT_S, s1) + 8, 17, C_BG);
+        number_s(s1, x0 + 4, 17, C_DIM);
+    }
+    if (b->batt_ms && now - b->batt_ms < 4000u && b->batt_low_ms) {   /* la batería: un aviso chico, sin tapar el visual */
+        if (b->batt_shown == 2) {                          /* vacía: grande y al centro, que se vea aunque esté tocando */
+            rect(0, 72, 240, 96, C_BG); rect(0, 72, 240, 1, C_RED); rect(0, 167, 240, 1, C_RED);
+            text("BATERÍA", 120, 113, 26, 224, C_RED, 2);
+            text("AGOTADA", 120, 149, 26, 224, C_RED, 2);
+        } else text("BATERÍA BAJA", 214, 18, 11, 140, C_RED, 1);
+    }
     if (b->rec) dot(226, 14, 5, C_RED);
     if ((b->perf >> FBX_PERF_FILL) & 1u) { rect(8, 8, 50, 22, C_FG); text("FILL", 14, 25, 13, 40, C_BG, 0); }
 hash:;
@@ -356,7 +399,7 @@ static void draw_text(const dcmd_t *d, unsigned y0, uint16_t *px)
 {
     const fg_font_t *f = d->f;
     int x = d->x;
-    if (d->align) x -= text_w(f, d->s);
+    if (d->align) x -= d->align == 2 ? text_w(f, d->s) / 2 : text_w(f, d->s);   /* (2: centrado) */
     const char *s = d->s;
     while (*s) {
         const fg_glyph_t *g = glyph(f, utf8(&s));

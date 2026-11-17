@@ -153,7 +153,7 @@ typedef struct fg_box {
     uint8_t aplay;
     uint8_t arec;                           /* el arpegio grabó notas (el audio avisa; la interfaz marca cambios) */
     /* notas sostenidas: las que se sueltan al final del bloque (después de que sonó su golpe) */
-    uint8_t noff[16][2], n_noff, maxv;
+    uint8_t noff[32][2], n_noff, maxv;
     uint32_t v_blk;
     uint32_t blk_ticks;                     /* lo que dura un bloque en unidades de fg_now (0: no se mide; 4 voces siempre) */
     /* cuánto tarda cada parte (unidades de fg_now) */
@@ -174,15 +174,24 @@ typedef struct fg_box {
     uint16_t used_btn, used_w;              /* ya se usó como modificador: al soltar no hace lo suyo */
     uint16_t perf, latch, perf_held;        /* FX de performance (por blanca): sonando, enganchados, apretados */
     uint16_t note_w;                        /* blancas que tocaron una nota (al soltarlas se suelta) */
+    uint16_t arp_w;                         /* de esas, las que fueron al arpegiador (el fin va al mismo lado) */
+    uint32_t marp[4][4];                    /* MIDI: las notas de cada sinte que fueron al arpegiador */
     uint8_t a_model[8];                     /* (audio) el motor que tiene cada pista */
     uint8_t copy_pat;                       /* COPIAR: el patrón de la pista copiada */
     fg_step_t copy_st;                      /* COPIAR: el paso copiado */
     uint8_t at_home;                        /* HOME llevó al visual: otro toque abre los PATRONES */
-    uint8_t slot_open;                      /* RANURAS: 1 + la ranura llena que se tocó una vez (otro toque la abre) */
-    uint32_t slot_open_ms, pat_ms[16];      /* PATRONES: cuándo se apretó cada blanca (mantener 1 s, dos veces = vaciar) */
-    uint16_t pat_done, pat_held;            /* (pat_held: las que se apretaron en PATRONES, no con HOME ni COPIAR/PEGAR) */
-    uint8_t pat_arm;                        /* el patrón que ya pidió confirmación (+1; 0: ninguno) */
-    uint32_t pat_arm_ms;
+    /* RANURAS y PATRONES: lo que pide confirmar (otra vez la misma blanca con el mismo gesto). Parpadea, y el aviso
+     * se queda mientras se pueda confirmar: hasta 4 s después de soltar la blanca */
+    uint8_t arm, arm_i, arm_up;             /* qué (FBA_*), en qué blanca, ya se soltó */
+    uint32_t arm_ms;
+    uint8_t proj_slot, pdirty;              /* la ranura del proyecto (+1; 0: ninguna) y si cambió desde que se abrió o guardó */
+    uint8_t fl_pend, fl_i, fl_src;          /* guardar, borrar o pegar una ranura tocando: se hace al parar (FBA_*) */
+    uint8_t save_open;                      /* SAVE abrió las RANURAS al apretarlo: al soltarlo no regresa */
+    uint8_t avisos, ubic, tip_seen;         /* GLO pág. 3: avisos 0 cortos, 1 largos, 2 fijos; la franja de ubicación; el aviso de los gestos ya salió */
+    uint32_t idle_ms, rest_ms;              /* lo último que se tocó; el último golpe de la pantalla de reposo */
+    int32_t batt;                           /* la batería (la plataforma: lectura del ADC, 0 = no se sabe) */
+    uint32_t batt_ms, batt_low_ms;          /* el último aviso de batería; desde cuándo está baja */
+    uint8_t batt_shown;                     /* el nivel del último aviso (si pasa de baja a vacía, se avisa en ese momento) */
     uint16_t hold_k[4];                     /* SOSTENER sin ARP: las blancas que se soltaron y siguen sonando, por sinte */
     uint8_t perf_last, pk[16][2];           /* el último efecto tocado y las perillas de cada uno (K1, K2; 64 = como siempre) */
     uint16_t kmov[4];                       /* cuánto se acaban de mover K1..K4 (0..256): el visual lo siente */

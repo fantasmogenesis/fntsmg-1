@@ -608,6 +608,8 @@ El sonido de un patrón (273 bytes):
 
 Un proyecto de la 0.9 (v7 o antes) se abre con su único sonido en los 16 patrones, y los patrones con pasos quedan con sonido propio.
 
+Después de los 16 sonidos, opcional (0.10, lanzamiento): `A5`, la ranura del proyecto (1..16; 0 = ninguna) y 1 si tenía cambios sin guardar en esa ranura. Lo usa el autoguardado para recordar dónde estabas; al abrir una ranura se ignora. Quien no lo conoce lo salta (nadie lee más allá de los sonidos).
+
 ### 6.6 Cuánto pesa
 
 | Proyecto | Bytes |

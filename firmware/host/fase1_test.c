@@ -122,15 +122,25 @@ int main(void)
     ok(B.page == PG_PATS && B.Q.pat[1].tr[0].st[0].v && B.Q.pat[2].tr[0].st[0].v && B.Q.pat[3].tr[0].st[0].v && B.s.chain_on,
        "PATRONES: HOME + blancas arma la cadena y no borra nada");
     white(2, 1); run(1500); white(2, 0); run(20);
-    ok(B.Q.pat[2].tr[0].st[0].v, "PATRONES: mantener 1 s una vez no borra (pide confirmar)");
-    run(3200); white(2, 1); run(1100); white(2, 0); run(20);
-    ok(B.Q.pat[2].tr[0].st[0].v, "la confirmación caduca a los 3 s");
-    white(1, 1); run(1100); white(1, 0); run(200); white(1, 1); run(1100); white(1, 0);
-    ok(!B.Q.pat[1].tr[0].st[0].v, "otra vez 1 s antes de 3 s: lo vacía");
-    white(0, 1); run(1100); white(0, 0); white(2, 1); run(1100); white(2, 0);
+    ok(B.Q.pat[2].tr[0].st[0].v, "PATRONES: mantener una blanca ya no borra");
+    btn(FB_REC, 1); wtap(1); run(20);
+    ok(B.Q.pat[1].tr[0].st[0].v && B.arm, "REC + blanca: pide confirmar y no borra");
+    wtap(1); btn(FB_REC, 0);
+    ok(!B.Q.pat[1].tr[0].st[0].v && !B.rec, "REC + la misma blanca otra vez: lo vacía (y REC no se prende)");
+    ok(!strcmp(B.ov.label, "PATRÓN 2") && !strcmp(B.ov.value, "VACÍO"), "y dice PATRÓN 2 / VACÍO");
+    btn(FB_HOME, 1); tap(FB_OCTDN); btn(FB_HOME, 0);
+    ok(B.Q.pat[1].tr[0].st[0].v, "HOME + OCT −: el patrón vaciado regresa");
+    btn(FB_REC, 1); wtap(0); wtap(2); btn(FB_REC, 0);
     ok(B.Q.pat[0].tr[0].st[0].v && B.Q.pat[2].tr[0].st[0].v, "confirmar con otra blanca no borra ninguna");
-    white(0, 1); run(1100); white(0, 0); white(0, 1); run(1100); white(0, 0);
-    ok(!B.Q.pat[0].tr[0].st[0].v, "PATRONES: mantener una blanca 1 s, dos veces, la vacía");
+    run(4300); btn(FB_REC, 1); wtap(2); btn(FB_REC, 0);
+    ok(B.Q.pat[2].tr[0].st[0].v && B.arm, "la confirmación caduca 4 s después de soltar");
+    btn(FB_REC, 1); run(1500); wtap(2); btn(FB_REC, 0); run(20);
+    ok(!B.Q.pat[2].tr[0].st[0].v, "REC sostenido más de 1 s + blanca: la vacía igual");
+    { unsigned c = B.s.cur; B.Q.pat[c].tr[0].st[0].v = 1; printf("      (patrón que suena: %u, chain %d)\n", c + 1, B.s.chain_on); btn(FB_REC, 1); wtap(c); wtap(c); btn(FB_REC, 0);
+      ok(!B.Q.pat[c].tr[0].st[0].v, "vaciar el patrón que suena");
+      btn(FB_HOME, 1); tap(FB_OCTDN); btn(FB_HOME, 0);
+      printf("      (%s · %s, u_i %d u_n %d)\n", B.ov.label, B.ov.value, B.u_i, B.u_n);
+      ok(B.Q.pat[c].tr[0].st[0].v, "HOME + OCT −: también regresa"); }
     tap(FB_HOME); run(20);
     ok(B.page == PG_EDIT, "HOME desde los PATRONES: al visual");
     btn(FB_HOME, 1); tap(FB_SEQ); btn(FB_HOME, 0); run(20);
@@ -209,16 +219,44 @@ int main(void)
     ok(B.seqmode, "SEQ: de regreso a pasos");
     /* RANURAS */
     tap(FB_SAVE); run(20);
-    ok(B.page == PG_SLOTS && SLOTN[FBX_SLOTS], "SAVE: guarda y abre las RANURAS");
+    ok(B.page == PG_SLOTS && SLOTN[FBX_SLOTS], "SAVE: autoguarda y abre las RANURAS");
     wtap(3); run(20);
-    ok(SLOTN[3] != 0 && ((B.slots >> 3) & 1u), "RANURAS: una vacía guarda ahí");
-    B.s.bpm = 99;
+    ok(!SLOTN[3] && !((B.slots >> 3) & 1u), "RANURAS: tocar una vacía no guarda");
+    btn(FB_SAVE, 1); wtap(3); btn(FB_SAVE, 0);
+    ok(SLOTN[3] && ((B.slots >> 3) & 1u) && B.proj_slot == 4 && B.page == PG_SLOTS, "SAVE + blanca: guarda ahí, la marca y no regresa");
+    B.s.bpm = 99; fg_box_enc(&B, FE_K1, 0);
+    btn(FB_SAVE, 1); wtap(3); run(20);
+    ok(B.arm && B.s.bpm == 99, "SAVE + una llena: pide confirmar");
+    wtap(3); btn(FB_SAVE, 0);
+    ok(!B.arm, "otra vez: guarda encima");
+    B.s.bpm = 120;
     wtap(3); run(20);
-    ok(B.s.bpm == 99 && B.slot_open == 4, "una llena: el primer toque no abre");
+    ok(B.s.bpm == 120 && B.arm, "tocar una llena: el primer toque no abre");
     wtap(3); run(20);
-    ok(B.s.bpm != 99, "el segundo la abre");
+    ok(B.s.bpm == 99 && B.proj_slot == 4 && !B.pdirty, "el segundo la abre (la que se guardó encima)");
+    btn(FB_SAVE, 1); wtap(5); btn(FB_SAVE, 0);
+    black(BK_COPY, 1); wtap(5); black(BK_COPY, 0);
+    black(BK_PASTE, 1); wtap(6); black(BK_PASTE, 0);
+    ok(SLOTN[6] && SLOTN[6] == SLOTN[5] && !memcmp(SLOT[6], SLOT[5], SLOTN[5]), "COPIAR + blanca, PEGAR + otra: copia la ranura");
+    black(BK_PASTE, 1); wtap(3); run(20);
+    ok(B.arm && SLOTN[3] != SLOTN[5] + 1u, "PEGAR encima de una llena: pide confirmar");
+    black(BK_PASTE, 0); run(4300);
+    btn(FB_REC, 1); wtap(6); run(20);
+    ok(SLOTN[6] && B.arm, "REC + blanca: pide confirmar");
+    wtap(6); btn(FB_REC, 0);
+    ok(!SLOTN[6] && !((B.slots >> 6) & 1u) && !B.rec, "otra vez: la borra (y REC no se prende)");
+    btn(FB_REC, 1); wtap(5); wtap(5); btn(FB_REC, 0);
+    btn(FB_REC, 1); wtap(3); wtap(3); btn(FB_REC, 0);
+    ok(!SLOTN[3] && B.proj_slot == 0, "borrar la ranura donde estás: ya no hay ranura actual");
+    tap(FB_PLAY); run(50);
+    btn(FB_SAVE, 1); wtap(7); btn(FB_SAVE, 0);
+    ok(!SLOTN[7] && B.fl_pend, "tocando: SAVE + blanca espera a que pares");
+    tap(FB_PLAY); run(100);
+    ok(SLOTN[7] && B.proj_slot == 8 && !B.fl_pend, "al parar, se guarda");
     tap(FB_SAVE); run(20);
     ok(B.page == PG_EDIT, "SAVE otra vez: de regreso");
+    { uint32_t n = 0; static uint8_t buf[16384]; B.proj_slot = 8; B.pdirty = 1; n = fg_box_pack(&B, buf, sizeof buf); B.proj_slot = 0; B.pdirty = 0;
+      fg_box_unpack(&B, buf, n); ok(B.proj_slot == 8 && B.pdirty == 1, "el autoguardado recuerda la ranura y si hay cambios"); }
     /* lock de mezcla: sostener un paso, tocar ENV sin soltarlo y girar */
     {
         if (B.page == PG_PASO) tap(FB_SEQ);

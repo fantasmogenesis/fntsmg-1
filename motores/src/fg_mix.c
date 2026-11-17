@@ -53,7 +53,8 @@ void fg_mix_tempo(fg_mix_t *m, uint32_t step)
     m->step = step;
     uint32_t d = step * DIV[m->fx[FGF_DTIME] * 8u / 128u] / 2u;
     uint32_t top = (FG_DLEN - 1u) << FG_DLY_HALF;               /* (dlen sigue en muestras de 44 kHz) */
-    m->dlen = d >= top ? top : d < 16u ? 16u : d;
+    m->dlen_t = d >= top ? top : d < 16u ? 16u : d;
+    if (!m->dlen) m->dlen = m->dlen_t;                          /* (al empezar, de una vez; luego se desliza como cinta) */
     m->gate_len = step;
     fg_mix_perfk(m, 3, 0, m->pk[3][0]);
 }
@@ -175,6 +176,7 @@ void fg_mix_render(fg_mix_t *m, int32_t *const in[FG_TRACKS], int32_t *outl, int
         int32_t yl, yr;
         m->dacc += din;
         if (m->dph) {
+            if (m->dlen != m->dlen_t) m->dlen += m->dlen < m->dlen_t ? 1u : (uint32_t)-1;   /* otro tempo: el largo se desliza (1 por paso) */
             uint32_t rp = (m->dpos - (m->dlen >> 1)) & (FG_DLEN - 1u);
             int32_t sl = m->dl[rp], sr = m->dr[rp];
             m->dlpl += fg_mul15(sl - m->dlpl, dla); m->dlpr += fg_mul15(sr - m->dlpr, dla);
@@ -189,6 +191,7 @@ void fg_mix_render(fg_mix_t *m, int32_t *const in[FG_TRACKS], int32_t *outl, int
         }
         m->dph ^= 1u;
 #else
+        if (m->dlen != m->dlen_t) m->dlen += m->dlen < m->dlen_t ? 1u : (uint32_t)-1;
         uint32_t rp = (m->dpos - m->dlen) & (FG_DLEN - 1u);
         int32_t yl = m->dl[rp], yr = m->dr[rp];
         m->dlpl += fg_mul15(yl - m->dlpl, 32767 - tone); m->dlpr += fg_mul15(yr - m->dlpr, 32767 - tone);

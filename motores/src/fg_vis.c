@@ -48,6 +48,12 @@ static uint32_t isqrt(uint32_t n)
 static void pxd(fg_vis_t *V, int x, int y, int v)
 {
     if ((unsigned)x >= FG_VIS_D || (unsigned)y >= FG_VIS_D || v <= 0) return;
+    if (V->clip1 && (x < V->clip0 || x >= V->clip1)) return;  /* cada sinte en su columna */
+    if (V->tex) {                                             /* y con su textura: B punteada, C a rayas, D doble */
+        if (V->tex == 1 && ((x + y) & 1)) return;
+        if (V->tex == 2 && ((y >> 1) & 1)) return;
+        if (V->tex == 3) { V->tex = 0; pxd(V, x + 2, y - 2, v >> 1); V->tex = 3; }
+    }
     unsigned q = v > 255 ? 15u : (unsigned)v >> 4;             /* 4 bits */
     if (!q) return;
     unsigned x0 = V->xm[x], x1 = V->xm[x + 1], y0 = V->ym[y], y1 = V->ym[y + 1];
@@ -90,6 +96,7 @@ static void ring(fg_vis_t *V, int cx4, int cy4, int r4, int w4, int v, int wob8,
     if (n < 30) n = 30;
     uint32_t step = TURN(n), mul = 1280u + (uint32_t)wob8;          /* sin(an·(5 + wob) + sd) */
     for (int j = 0; j < n; j++) {
+        if (V->dash && (j & 3) >= 2) continue;                /* (el bombo: punteado) */
         uint32_t ph = step * (uint32_t)j;
         int rr = r4 + (((wob8 >> 4) * SIN((uint32_t)(((uint64_t)ph * mul) >> 8) + sd)) >> 15);
         int32_t c = COS(ph), s = SIN(ph);
@@ -119,7 +126,7 @@ static uint32_t lifeOf(const fg_vis_ent_t *e)                 /* segundos Q16 */
 {
     const uint16_t *q = e->q;
     switch (e->t) {
-    case 0: return 16384u + q[2] * 333u;
+    case 0: return 13107u + q[2] * 205u;                      /* (bombo: de 0.2 a 1 s; antes hasta 1.5) */
     case 1: return e->m == 0 ? 16384u + q[3] * 154u : 13107u + q[3] * 230u + q[4] * 154u;
     case 2: return e->m == 0 ? 3932u + q[1] * 307u : 7864u + q[1] * 666u;
     case 3: return e->m == 0 ? 9830u + q[2] * 358u + q[4] * 307u : 7864u + q[3] * 282u;
@@ -141,15 +148,18 @@ static void draw(fg_vis_t *V, const fg_vis_ent_t *e, uint32_t a16, int k8, int s
     uint32_t seed = e->seed;
     switch (e->t) {
     case 0:
-        if (e->m == 0) {                                        /* onda expansiva */
-            int r4 = mul8(96 + mul8(mul8(k8, 1888), 128 + mul8(q[1], 179)), sc8);
-            int w4 = mul8(32 + mul8(q[3], 80) + mul8(mul8(q[6], 80), 256 - k8), mini(sc8, 410));
-            ring(V, 1920, 1920, r4, w4, v, q[3] * 9, (uint32_t)(((uint64_t)seed * 815u) >> 8));
+        if (e->m == 0) {                                        /* onda expansiva: chica, corta y punteada (el bombo suele ser lo más fuerte) */
+            int vk = mul8(v, 180);
+            int r4 = mul8(96 + mul8(mul8(k8, 1150), 128 + mul8(q[1], 179)), mini(sc8, 300));
+            int w4 = mul8(32 + mul8(q[3], 64) + mul8(mul8(q[6], 64), 256 - k8), mini(sc8, 360));
+            V->dash = 1;
+            ring(V, 1920, 1920, r4, w4, vk, q[3] * 9, (uint32_t)(((uint64_t)seed * 815u) >> 8));
+            V->dash = 0;
             if (q[4] > 5) {
-                int rk8 = mini(256, (int)((a16 << 8) / (19661u + q[4] * 461u)));
-                disc(V, 1920, 1920, mul8(352 + mul8(mul8(q[4], 1120), 256 - mul8(rk8, 102)), sc8), mul8(mul8(77, q[4]), 256 - rk8));
+                int rk8 = mini(256, (int)((a16 << 8) / (13107u + q[4] * 300u)));
+                disc(V, 1920, 1920, mul8(256 + mul8(mul8(q[4], 640), 256 - mul8(rk8, 102)), mini(sc8, 300)), mul8(mul8(36, q[4]), 256 - rk8));
             }
-            if (q[5] > 12 && a16 < 1638u) disc(V, 1920, 1920, mul8(48 + mul8(q[5], 192), sc8), 256);
+            if (q[5] > 12 && a16 < 1638u) disc(V, 1920, 1920, mul8(48 + mul8(q[5], 128), mini(sc8, 300)), 200);
         } else {                                                /* membrana: modos que se apagan */
             int R4 = mul8(544 + mul8(q[0], 480), sc8);
             uint32_t e18 = expneg(a16 * 18u), e6 = expneg(a16 * 6u), e8 = expneg(a16 * 8u);
@@ -260,6 +270,7 @@ static void draw(fg_vis_t *V, const fg_vis_ent_t *e, uint32_t a16, int k8, int s
         int cy4 = 3600 - (note - 24) * 54, cx4 = 576 + slot * 896;
         if (cy4 < 320) cy4 = 320;
         if (cy4 > 3600) cy4 = 3600;
+        V->clip0 = (int16_t)(8 + slot * 56); V->clip1 = (int16_t)(V->clip0 + 56); V->tex = (uint8_t)(slot & 3);
         if (e->m == FGY_ACIDO) {                         /* ÁCIDO: seno que corre */
             int A4 = mul8(mul8(64 + mul8(q[3], 320), v), sc8);
             uint32_t inc = (uint32_t)(((uint64_t)(65536u + q[1] * 1280u) * 17895697u) >> 16), ph = (uint32_t)((uint64_t)a16 * 73013u);
@@ -294,7 +305,7 @@ static void draw(fg_vis_t *V, const fg_vis_ent_t *e, uint32_t a16, int k8, int s
             int nd = 20 + mul8(q[1], 120), spr = 300 + mul8(q[3], 1800), r4 = 8 + mul8(q[2], 40);
             uint32_t drift = (uint32_t)((uint64_t)a16 * 400u);
             for (int i = 0; i < nd; i++) {
-                int x4 = 1920 + (int)(((int32_t)h16(seed, (uint32_t)i) - 32768) * spr >> 15) + (int)((drift * (uint32_t)(1 + (i & 3))) >> 16);
+                int x4 = cx4 + (int)(((int32_t)h16(seed, (uint32_t)i) - 32768) * spr >> 15) + (int)((drift * (uint32_t)(1 + (i & 3))) >> 16);
                 int y4 = cy4 + (int)(((int32_t)h16(seed, (uint32_t)i + 777u) - 32768) * (spr / 2) >> 15) - (int)(drift >> 17);
                 disc(V, x4, y4, r4, mul8(v, 120 + (int)(h16(seed, (uint32_t)i + 99u) >> 9)));
             }
@@ -320,7 +331,16 @@ static void draw(fg_vis_t *V, const fg_vis_ent_t *e, uint32_t a16, int k8, int s
                 int r4 = mul8(mul8(mul8(160 + k * 30, 256 + (int)(rr[k] >> 3)), sc8), 128 + mul8(k8, 128));
                 ring(V, cx4, cy4, r4, 20, mul8(v, 256 - k * 40), q[6] * 2, seed + (uint32_t)k * 77777u);
             }
+        } else {                                                /* SAMPLE y los motores de la 0.10: barras en su columna; cada motor con cuántas y a qué ritmo */
+            int nb = 2 + (int)(e->m % 5u), bw = 56 / nb, H4 = mul8(mul8(mul8(240 + mul8(q[2], 420), v), sc8), 256 - mul8(k8, 200));
+            uint32_t sp = (uint32_t)(e->m * 9000u + 20000u), ph = (uint32_t)((uint64_t)a16 * sp);
+            for (int k = 0; k < nb; k++) {
+                int h4 = mul8(H4, 96 + (int)((h16(seed, (uint32_t)k) >> 9) + ((SIN(ph + (uint32_t)k * 0x30000000u) >> 8) + 128) / 2));
+                int x = 8 + slot * 56 + k * bw + bw / 2 - 1;
+                for (int y4 = cy4 - h4; y4 <= cy4 + h4; y4 += 16) { pxd(V, x, y4 >> 4, v); pxd(V, x + 1, y4 >> 4, v); }
+            }
         }
+        V->clip1 = 0; V->tex = 0;
         return; }
     }
 }

@@ -55,7 +55,7 @@ typedef struct {
     uint8_t fx[FGF_N];
     uint32_t perf;
     uint8_t pk[12][2];                    /* perillas de cada efecto de performance (bit FGP_*): 64 = como siempre */
-    uint32_t dlen, dpos, step;            /* delay: largo en muestras (lo fija el tempo) */
+    uint32_t dlen, dpos, step, dlen_t;    /* delay: largo en muestras (lo fija el tempo; dlen va hacia dlen_t poco a poco: sin clic) */
     int16_t dl[FG_DLEN], dr[FG_DLEN];
     int32_t dlpl, dlpr;
     int32_t dacc, dpl, dpr, dcl, dcr;     /* delay a media tasa: entrada acumulada, salida anterior y actual */

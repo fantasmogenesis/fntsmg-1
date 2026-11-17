@@ -44,19 +44,19 @@ static const char *const MNAME[4][5] = {{"\1BARRIDO", "\1MEMBRANA", "\1SAMPLE", 
 static const char *const YNAME[16] = {"\1SH", "\1ÁCIDO", "\1FM", "\1CUERDAS", "\1TEXTURA", "\1DRON", "\1DUB", "\1RESONADOR", "\1SAMPLE",
                                       "\1CUATRO", "\1PLIEGUE", "\1TABLA", "\1ÓXIDO", "\1ENJAMBRE", "\1FASE", "\1ÓRGANO"};
 const char *fbx_model_name(unsigned t, unsigned m) { return t >= 4 ? YNAME[m % 16u] : MNAME[t % 4u][m % NSTORE[t % 4u]]; }
-#define SAMPLE_L {"AFINACIÓN", "SAMPLE", "PUNTO INICIO", "CAÍDA", "FILTRO", "CRUJIDO", "MODO"}
+#define SAMPLE_L {"AFINACIÓN", "SAMPLE", "PUNTO INICIO", "CAÍDA", "FILTRO", "DEGRADAR", "MODO"}
 static const char *const PLAB_D[4][3][7] = {
-    {{"TONO", "BARRIDO", "CAÍDA", "DOBLAR", "SATURACIÓN", "ATAQUE", "CUERPO"}, {"TONO", "TENSIÓN", "CAÍDA", "MATERIAL", "GOLPE", "SATURACIÓN", "PEGADA"},
+    {{"TONO", "BARRIDO", "CAÍDA", "PLEGAR", "SATURACIÓN", "CLIC", "PUNCH"}, {"TONO", "TENSIÓN", "CAÍDA", "MATERIAL", "DUREZA", "SATURACIÓN", "PUNCH"},
      SAMPLE_L},
-    {{"TONO", "CUERPO", "RUIDO", "CAÍDA", "BRILLO", "ATAQUE", "PEGADA"}, {"TONO", "PALMAS", "SEPARACIÓN", "CAÍDA", "SALA", "COLOR", "PEGADA"},
+    {{"TONO", "CUERPO", "RUIDO", "CAÍDA", "BRILLO", "CLIC", "PUNCH"}, {"TONO", "CANTIDAD", "SEPARACIÓN", "CAÍDA", "SALA", "COLOR", "PUNCH"},
      SAMPLE_L},
-    {{"DENSIDAD", "CAÍDA", "COLOR", "RESONANCIA", "VIBRACIÓN", "GRANO", "PEGADA"}, {"TONO", "CAÍDA", "FORMA", "BRILLO", "GOLPE", "BATIDO", "PEGADA"}, SAMPLE_L},
-    {{"TONO", "DIRECCIÓN", "RESONANCIA", "DUREZA", "REBOTE", "MATERIAL", "PEGADA"}, {"TONO", "CAOS", "PEINE", "CAÍDA", "ROTURA", "BITS", "RUIDO"}, SAMPLE_L}};
+    {{"GRANOS", "CAÍDA", "BRILLO", "RESONANCIA", "ATAQUE", "TAMAÑO", "PUNCH"}, {"TONO", "CAÍDA", "FORMA", "BRILLO", "DUREZA", "DESAFINA", "PUNCH"}, SAMPLE_L},
+    {{"TONO", "DIRECCIÓN", "RESONANCIA", "DUREZA", "REBOTE", "MATERIAL", "PUNCH"}, {"TONO", "CAOS", "RESONADOR", "CAÍDA", "ASPEREZA", "DEGRADAR", "RUIDO"}, SAMPLE_L}};
 static const char *const PLAB_Y[FGY_MODELS][7] = {
-    {"NOTA", "ONDA", "SUB", "FILTRO", "RESONANCIA", "ENVOLVENTE", "TIPO DE ENVOLVENTE"}, {"NOTA", "FILTRO", "RESONANCIA", "ENVOLVENTE", "CAÍDA", "RUGOSIDAD", "GLIDE"},
+    {"NOTA", "ONDA", "SUB", "FILTRO", "RESONANCIA", "ENVOLVENTE", "TIPO ADSR"}, {"NOTA", "FILTRO", "RESONANCIA", "ENVOLVENTE", "CAÍDA", "ONDA", "PORTAMENTO"},
     {"NOTA", "RAZÓN", "ÍNDICE", "FEEDBACK", "GOLPE", "CAÍDA", "RUGIDO"}, {"NOTA", "DESAFINACIÓN", "BRILLO", "CORO", "ATAQUE", "LIBERACIÓN", "SUB"},
-    {"NOTA", "SAMPLE", "POSICIÓN", "MOVIMIENTO", "BRILLO", "REVERB", "LIBERACIÓN"}, {"NOTA", "LATIDO", "FORMA", "MOVIMIENTO", "BRILLO", "CORO", "SATURACIÓN"},
-    {"NOTA", "ACORDE", "FILTRO", "CAÍDA", "ECO", "TIEMPO", "SUCIEDAD"}, {"NOTA", "MATERIAL", "CAÍDA", "ARCO", "BRILLO", "SIMPATÍA", "MOVIMIENTO"}, SAMPLE_L};
+    {"NOTA", "SAMPLE", "POSICIÓN", "MOVIMIENTO", "BRILLO", "REVERB", "LIBERACIÓN"}, {"NOTA", "BATIMIENTO", "ONDA", "DERIVA", "BRILLO", "CHORUS", "SATURACIÓN"},
+    {"NOTA", "ACORDE", "FILTRO", "CAÍDA", "ECO", "TIEMPO", "SUCIEDAD"}, {"NOTA", "MATERIAL", "CAÍDA", "ROCE", "BRILLO", "RETORNO", "VIBRATO"}, SAMPLE_L};
 
 typedef struct { const char *name; uint8_t p[8]; } preset_t;
 /* presets de fábrica: 20 por motor, en motores/tools/presets.py (de ahí sale fg_presets.h con el NIVEL ya igualado) */
@@ -80,7 +80,7 @@ static uint8_t UBN, ub_dirty;
 static int remap_upre_v4(fbx_upre_t *u);
 
 static const char *const MIXL[4] = {"VOLUMEN", "PANEO", "DELAY", "REVERB"};
-static const char *const FXL[8] = {"DELAY TIEMPO", "DELAY REPITE", "DELAY TONO", "REVERB TAMAÑO", "REVERB TONO", "FILTRO", "SATURACIÓN", "COMPRESIÓN"};
+static const char *const FXL[8] = {"DELAY TIEMPO", "DELAY REPITE", "TONO DELAY", "REVERB TAMAÑO", "TONO REVERB", "FILTRO", "SATURACIÓN", "COMPRESIÓN"};
 static const uint8_t FXDEF[8] = {4, 50, 70, 70, 60, 64, 0, 30};
 static const uint8_t FXPAGE[2][4] = {{0, 1, 3, 5}, {2, 4, 6, 7}};
 static const char *const CONDS[12] = {"SIEMPRE", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "SIN FILL"};
@@ -123,6 +123,7 @@ static void catsi(char *d, int v, unsigned cap) { if (v > 0) scat(d, "+", cap); 
 /* un texto que la pantalla no traduce (nombres de sonidos y de samples): uno a la vez */
 static const char *raw(const char *s) { static char o[24]; o[0] = 1; scpy(o + 1, s, sizeof o - 1u); return o; }
 static uint8_t dev_dirty;                                 /* el idioma cambió: se escribe parado (dev_flush) */
+static uint8_t tip_due;                                   /* el aviso de los gestos (una vez, después del arranque) */
 static int is_synth(unsigned t) { return t >= 4; }
 static fg_track_t *TRK(fg_box_t *b) { return &b->Q.pat[b->s.cur].tr[b->sel]; }
 static uint8_t *P(fg_box_t *b, unsigned t) { return b->s.p[t][b->s.model[t]]; }
@@ -192,8 +193,10 @@ static void eng_param(fg_box_t *b, unsigned t, unsigned m, unsigned i, unsigned 
 }
 static void eng_model(fg_box_t *b, unsigned t, unsigned m)
 {
+    unsigned c0 = CAND[t][b->a_model[t] % FBX_NM];
     b->a_model[t] = (uint8_t)m;
     unsigned c = CAND[t][m % FBX_NM];
+    if (c0 != CN_OLD && c0 != CN_PLACA && c0 != c) fg_cand_release(&b->CA[t]);   /* el motor nuevo que sonaba suelta su nota: ya no le llega el fin */
     if (c == CN_PLACA) { fg_metal_model(&b->MT2, 1); return; }
     if (c != CN_OLD) { fg_cand_model(&b->CA[t], c, b->Q.pbase[t][m % FBX_NM]); return; }   /* (sus perillas: las que tiene el secuenciador) */
     switch (t) {
@@ -205,6 +208,12 @@ static void eng_model(fg_box_t *b, unsigned t, unsigned m)
     }
 }
 
+static void note_release(fg_box_t *b, unsigned t, unsigned key)
+{
+    if (t < 4) return;
+    fg_synth_release(&b->SY[t - 4], key);
+    if (CAND[t][b->a_model[t] % FBX_NM] != CN_OLD) fg_cand_release(&b->CA[t]);   /* (los nuevos son de una voz) */
+}
 static void usr_off(fg_sampv_t *v) { if (v->on && v->s >= fg_usr && v->s < fg_usr + FGS_USR) v->on = 0; }
 static void apply_msg(fg_box_t *b, const fbx_msg_t *m)
 {
@@ -242,7 +251,10 @@ static void apply_msg(fg_box_t *b, const fbx_msg_t *m)
         int hold = (m->v & 0x100) && m->t >= 4;
         fg_seq_audition(q, m->t, m->a, lk, hold ? (unsigned)(m->v & 0xFF) : 255u, hold ? (int32_t)FGY_HOLD : 0);
         break; }
-    case M_NOTEOFF: if (b->n_noff < 16) { b->noff[b->n_noff][0] = m->t; b->noff[b->n_noff][1] = m->a; b->n_noff++; } break;
+    case M_NOTEOFF:
+        if (b->n_noff < sizeof b->noff / sizeof b->noff[0]) { b->noff[b->n_noff][0] = m->t; b->noff[b->n_noff][1] = m->a; b->n_noff++; }
+        else note_release(b, m->t, m->a);                /* (muchas a la vez: esta se suelta ya, no se pierde) */
+        break;
     case M_CHAINSET: {                                   /* la cadena cambia sin volver al principio */
         unsigned n = (unsigned)m->v > FG_SEQ_CHAIN ? FG_SEQ_CHAIN : (unsigned)m->v;
         q->queued = -1;
@@ -576,11 +588,7 @@ void fg_box_audio(fg_box_t *b, int32_t *out, unsigned n)
     b->t_wait = on1 ? fg_now() - tw : 0;
     run_group(b, G_MIX, n, r_mix);
     for (unsigned i = 0; i < n; i++) { out[2 * i] = fg_clamp16(b->outl[i]); out[2 * i + 1] = fg_clamp16(b->outr[i]); }
-    for (unsigned k = 0; k < b->n_noff; k++) if (b->noff[k][0] >= 4) {
-        unsigned t = b->noff[k][0];
-        fg_synth_release(&b->SY[t - 4], b->noff[k][1]);
-        if (CAND[t][b->a_model[t] % FBX_NM] != CN_OLD) fg_cand_release(&b->CA[t]);   /* (los nuevos son de una voz) */
-    }
+    for (unsigned k = 0; k < b->n_noff; k++) note_release(b, b->noff[k][0], b->noff[k][1]);
     b->n_noff = 0;
     if ((++b->blocks & 3u) == 0) for (int t = 0; t < 8; t++) b->level[t] = b->MX.st[t].peak;
     /* reloj MIDI: 24 pulsos por negra, parejos desde el arranque (el swing no se manda) */
@@ -607,17 +615,36 @@ void fg_box_audio(fg_box_t *b, int32_t *out, unsigned n)
 
 /* ------------------------------------------------------------ interfaz --- */
 
+/* cuánto dura cada aviso (GLO pág. 3, AVISOS): 0 el de perilla, 1 los nombres de la página, 2 el de pista.
+ * CORTOS como hasta la 0.10 beta, LARGOS (el de fábrica) y FIJOS: se quedan hasta que tocas otra cosa */
+/* la batería (b->batt: la lectura del ADC que da la plataforma). Felucca dibuja 1 raya desde 531, 2 desde 561 y
+ * 3 desde 591; los FM-1 se apagaron con 524–529. Debajo de 500 no puede estar corriendo con batería: es el USB
+ * sin batería (o no se sabe), y no se avisa nada */
+#define BATT_LOW 545
+#define BATT_EMPTY 531
+static int batt_level(const fg_box_t *b)                 /* 0 bien, 1 baja, 2 vacía (5 s seguidos debajo) */
+{
+    if (!b->batt_low_ms || b->now - b->batt_low_ms < 5000u) return 0;
+    return b->batt < BATT_EMPTY ? 2 : 1;
+}
+static int batt_empty(const fg_box_t *b) { return batt_level(b) == 2; }   /* (el autoguardado no escribe: un corte a la mitad lo borraría) */
+#define FBX_FIJO 0x40000000u
+static uint32_t ov_end(const fg_box_t *b, unsigned kind)
+{
+    static const uint16_t D[2][3] = {{1300, 1300, 1100}, {2200, 2600, 1800}};
+    return b->now + (b->avisos >= 2u ? FBX_FIJO : D[b->avisos ? 1 : 0][kind]);
+}
 static void show_ov(fg_box_t *b, const char *label, const char *value, int bar)
 {
     scpy(b->ov.label, label, sizeof b->ov.label); scpy(b->ov.value, value, sizeof b->ov.value);
-    b->ov.bar = (int16_t)bar; b->ov.until = b->now + 1300u;
+    b->ov.bar = (int16_t)bar; b->ov.until = ov_end(b, 0);
     b->names_until = 0; b->big_until = 0;
 }
-static void show_big(fg_box_t *b) { b->big_until = b->now + 1100u; b->ov.until = 0; b->names_until = 0; }
+static void show_big(fg_box_t *b) { b->big_until = ov_end(b, 2); b->ov.until = 0; b->names_until = 0; }
 static void kit_take(const fbx_song_t *s, fbx_kit_t *k);
 static void mark(fg_box_t *b)
 {
-    b->dirty = 1; b->dirty_ms = b->now; b->u_dirty = 1;
+    b->dirty = 1; b->dirty_ms = b->now; b->u_dirty = 1; b->pdirty = 1;
     kit_take(&b->s, &b->kit[b->s.cur]); b->kit_own |= (uint16_t)(1u << b->s.cur);   /* (lo que se edita es del patrón que se ve) */
 }
 
@@ -894,11 +921,12 @@ void fg_box_init(fg_box_t *b, void *vis_mem, unsigned vis_w, unsigned vis_h, uns
     b->rng = seed * 2654435761u + 1u;
     b->perf_last = 255;
     for (unsigned i = 0; i < 16; i++) b->pk[i][0] = b->pk[i][1] = 64;
+    b->avisos = 1; b->ubic = 1;                          /* (de fábrica: avisos largos y la franja de ubicación) */
 }
 
 /* ---- qué hace cada perilla ahora (target() de la caja) ---- */
 
-enum { TK_NONE, TK_ARP, TK_PARAM, TK_AZAR, TK_PLOCK, TK_MIX, TK_MLOCK, TK_FX, TK_SCL, TK_LFO, TK_GLO, TK_GLO2, TK_CHAIN, TK_SCL2, TK_LFO2,
+enum { TK_NONE, TK_ARP, TK_PARAM, TK_AZAR, TK_PLOCK, TK_MIX, TK_MLOCK, TK_FX, TK_SCL, TK_LFO, TK_GLO, TK_GLO2, TK_GLO3, TK_CHAIN, TK_SCL2, TK_LFO2,
        TK_ARPC, TK_PERFK };
 typedef struct { uint8_t kind, idx; int16_t min, max; uint16_t step8; const char *label; } tgt_t;
 
@@ -926,7 +954,7 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
     if (locks_ok(b)) nhs = held_steps(b, hs);
     g->step8 = 256; g->min = 0; g->max = 127;
     if (b->page == PG_PASO) {                            /* SEQ otra vez: lo de los pasos que se sostienen */
-        static const char *const L[4] = {"CONDICIÓN", "PROBABILIDAD", "RATCHET", "MICRO"};
+        static const char *const L[4] = {"CONDICIÓN", "% AZAR", "REDOBLE", "DESFASE"};
         static const int16_t MI[4] = {0, 0, 1, -8}, MA[4] = {11, 100, 4, 7};
         static const uint16_t ST[4] = {128, 256, 96, 128};
         g->label = L[k];
@@ -937,7 +965,7 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
     {                                                    /* un efecto de performance sonando: K1 y K2 son suyos */
         static const char *const L[16][2] = {{0, 0}, {0, 0}, {"TAMAÑO", 0}, {"TAMAÑO", 0}, {"REVERSA VELOCIDAD", 0},
             {"VEL. CINTA", 0}, {"FRENO TIEMPO", 0}, {"GATE VELOCIDAD", "GATE ANCHO"}, {"FILTRO CORTE", "FILTRO RESO"},
-            {"FILTRO CORTE", "FILTRO RESO"}, {"BITS", "BITS TASA"}, {"ECO REPITE", "ECO TONO"}, {"CONGELA TAMAÑO", "CONGELA TONO"},
+            {"FILTRO CORTE", "FILTRO RESO"}, {"BITCRUSH", "CALIDAD"}, {"ECO REPITE", "ECO TONO"}, {"CONGELA TAMAÑO", "CONGELA TONO"},
             {0, 0}, {0, 0}, {0, 0}};
         unsigned e = b->perf_last;
         if (k < 2u && e < 16u && ((b->perf >> e) & 1u) && L[e][k]) {
@@ -945,7 +973,7 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
         }
     }
     if (b->page == PG_ARP) {                             /* el arpegiador de la pista (MODO en NO: apagado) */
-        static const char *const L[8] = {"ARP MODO", "ARP VELOCIDAD", "ARP OCTAVAS", "SOSTENER", "DURACIÓN", "REPETIR", "PROBABILIDAD", "ACENTO"};
+        static const char *const L[8] = {"MODO", "RITMO", "OCTAVAS", "SOSTENER", "DURACIÓN", "REPETIR", "% AZAR", "ACENTO"};
         static const int16_t MA[8] = {5, 5, 2, 1, 127, 3, 100, 3};
         static const uint16_t ST[8] = {96, 96, 96, 64, 256, 96, 256, 96};
         unsigned i = b->pn * 4u + k;
@@ -973,12 +1001,12 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
     case PG_FX: g->idx = FXPAGE[b->pn & 1u][k]; g->label = FXL[g->idx]; g->kind = TK_FX; return 1;
     case PG_SCL: {
         if (b->pn) {
-            static const char *const L[4] = {"MOVER", "TRANSPONER", "HUMANIZAR", "DENSIDAD"};
+            static const char *const L[4] = {"DESPLAZAR", "TRANSPONER", "HUMANIZAR", "DENSIDAD"};
             static const int16_t MI[4] = {-64, 40, 0, 0}, MA[4] = {64, 88, 127, 127};
             static const uint16_t ST[4] = {256, 128, 256, 256};
             g->kind = TK_SCL2; g->idx = (uint8_t)k; g->label = L[k]; g->min = MI[k]; g->max = MA[k]; g->step8 = ST[k]; return 1;
         }
-        static const char *const L[4] = {"PASOS", "VELOCIDAD", "GOLPES", "ROTAR"};
+        static const char *const L[4] = {"PASOS", "VELOCIDAD", "EUCLÍDEO", "GIRAR"};
         static const int16_t MI[4] = {1, 0, 0, 0}, MA[4] = {32, 2, 32, 31};
         static const uint16_t ST[4] = {256, 64, 256, 256};
         g->kind = TK_SCL; g->idx = (uint8_t)k; g->label = L[k]; g->min = MI[k]; g->max = MA[k]; g->step8 = ST[k]; return 1; }
@@ -990,13 +1018,21 @@ static int target(fg_box_t *b, unsigned k, tgt_t *g)
         g->kind = b->pn ? TK_LFO2 : TK_LFO; g->idx = (uint8_t)k; g->label = b->pn ? L2[k] : L[k]; g->max = MA[k]; g->step8 = ST[k]; return 1; }
     case PG_GLO:
         if (b->pn == 0) {
-            static const char *const L[4] = {"TEMPO", "SWING", "RAÍZ", "ESCALA"};
+            static const char *const L[4] = {"TEMPO", "SWING", "NOTA BASE", "ESCALA"};
             static const int16_t MI[4] = {60, 0, -12, 0}, MA[4] = {200, 75, 12, 7};
             static const uint16_t ST[4] = {256, 256, 128, 96};
             g->kind = TK_GLO; g->idx = (uint8_t)k; g->label = L[k]; g->min = MI[k]; g->max = MA[k]; g->step8 = ST[k]; return 1;
         }
+        if (b->pn == 2) {                                /* pág. 3: la pantalla (del aparato, no del proyecto) */
+            static const char *const L[4] = {"INTERFAZ", "UBICACIÓN", 0, 0};
+            static const int16_t MA[4] = {2, 1, 0, 0};
+            static const uint16_t ST[4] = {96, 64, 0, 0};
+            g->label = L[k] ? L[k] : "–";
+            if (!L[k]) return 0;
+            g->kind = TK_GLO3; g->idx = (uint8_t)k; g->label = L[k]; g->max = MA[k]; g->step8 = ST[k]; return 1;
+        }
         {
-            static const char *const L[4] = {"SILENCIOS", "RELOJ", "IDIOMA", "NOTAS Y CC"};
+            static const char *const L[4] = {"MUTES", "RELOJ", "IDIOMA", "MIDI"};
             static const int16_t MA[4] = {1, 3, FG_LANGS - 1, 3};
             static const uint16_t ST[4] = {64, 96, 96, 96};
             g->kind = TK_GLO2; g->idx = (uint8_t)k; g->label = L[k]; g->max = MA[k]; g->step8 = ST[k]; return 1;
@@ -1033,6 +1069,7 @@ static int tget(fg_box_t *b, const tgt_t *g)
     case TK_LFO: return b->s.lfo[t][g->idx];
     case TK_GLO: return g->idx == 0 ? b->s.bpm : g->idx == 1 ? b->s.swing : g->idx == 2 ? b->s.transp : b->s.scale;
     case TK_GLO2: return g->idx == 0 ? b->s.muteq : g->idx == 1 ? b->s.reloj : g->idx == 2 ? fg_lang : b->s.mnotes;
+    case TK_GLO3: return g->idx == 0 ? b->avisos : b->ubic;
     case TK_CHAIN: { unsigned r = b->crow_cur; return g->idx == 0 ? (b->s.crow[r] == 255 ? 0 : b->s.crow[r] + 1) : g->idx == 1 ? b->s.crep[r] : b->s.chain_on; }
     }
     return 0;
@@ -1120,6 +1157,10 @@ static void tset(fg_box_t *b, const tgt_t *g, int v)
         else if (g->idx == 2) { fg_lang = (uint8_t)v; dev_dirty = 1; return; }   /* (del aparato, no del proyecto) */
         else { if (g->idx == 1) b->s.reloj = (uint8_t)v; else b->s.mnotes = (uint8_t)v; send_midi_cfg(b); }
         break;
+    case TK_GLO3:                                        /* (del aparato, no del proyecto) */
+        if (g->idx == 0) b->avisos = (uint8_t)v; else b->ubic = (uint8_t)v;
+        dev_dirty = 1;
+        return;
     case TK_CHAIN: {
         unsigned r = b->crow_cur;
         int was = b->s.chain_on;
@@ -1239,10 +1280,14 @@ static void tfmt(fg_box_t *b, const tgt_t *g, int v, char *o, unsigned cap)
         else scpy(o, SCALEN[clampi(v, 0, 7)], cap);
         return;
     case TK_GLO2:
-        if (g->idx == 0) scpy(o, v ? "AL COMPÁS" : "AL INSTANTE", cap);
+        if (g->idx == 0) scpy(o, v ? "AL COMPÁS" : "INMEDIATOS", cap);
         else if (g->idx == 1) { static const char *const R[4] = {"NO", "ENTRA", "SALE", "ENTRA Y SALE"}; scpy(o, R[clampi(v, 0, 3)], cap); }
         else if (g->idx == 2) scpy(o, FG_LANG_NAME[clampi(v, 0, FG_LANGS - 1)], cap);
         else { static const char *const N[4] = {"NO", "ENTRAN", "SALEN", "LAS DOS"}; scpy(o, N[clampi(v, 0, 3)], cap); }
+        return;
+    case TK_GLO3:
+        if (g->idx == 0) { static const char *const A[3] = {"1 SEG", "2 SEG", "NO QUITAR"}; scpy(o, A[clampi(v, 0, 2)], cap); }
+        else scpy(o, v ? "SÍ" : "NO", cap);
         return;
     case TK_CHAIN:
         if (g->idx == 0) { if (v) { scpy(o, "PATRÓN ", cap); cati(o, v, cap); } else scpy(o, "– VACÍA", cap); }
@@ -1276,7 +1321,7 @@ static void turn(fg_box_t *b, unsigned k, int d)
     }
     if (g.kind == TK_SCL2 && g.idx == 0) {               /* MOVER: un paso por clic, no una posición */
         move_steps(b, d > 0 ? 1 : -1);
-        show_ov(b, "MOVER", d > 0 ? "→ UN PASO" : "← UN PASO", 128);
+        show_ov(b, "DESPLAZAR", d > 0 ? "→ UN PASO" : "← UN PASO", 128);
         return;
     }
     uint32_t key = 1u + b->page + b->pn * 16u + k * 64u + g.kind * 1024u;
@@ -1416,13 +1461,14 @@ static void ub_flush(fg_box_t *b)
 static void dev_flush(fg_box_t *b)
 {
     if (!dev_dirty || !b->store_write || b->playing) return;
-    uint8_t d[2] = {1, fg_lang};                          /* [versión][idioma] */
+    uint8_t d[3] = {1, fg_lang, (uint8_t)((b->avisos & 3u) | (b->ubic ? 0u : 4u) | (b->tip_seen ? 8u : 0u))};   /* [versión][idioma][avisos, sin franja, gestos vistos] */
     if (!b->store_write(FBX_DEV_SLOT, d, sizeof d)) dev_dirty = 0; else b->retry_ms = b->now + 30000u;
 }
 static void dev_load(fg_box_t *b)
 {
     uint8_t d[8]; uint32_t n = 0;
     if (b->store_read && !b->store_read(FBX_DEV_SLOT, d, sizeof d, &n) && n >= 2u && d[0] == 1u && d[1] < FG_LANGS) fg_lang = d[1];
+    if (n >= 3u && d[0] == 1u) { b->avisos = (d[2] & 3u) <= 2u ? d[2] & 3u : 1u; b->ubic = !(d[2] & 4u); b->tip_seen = (d[2] & 8u) != 0; }
 }
 /* el banco desde un búfer (la flash o la app); 0 = bien */
 static int ub_from(const uint8_t *q, uint32_t n)
@@ -1652,7 +1698,7 @@ static void init_sound(fg_box_t *b)
     b->s.azar[t] = 0; post(b, M_AZAR, t, 0, 0, 0);
     b->pn = 0; clear_acc(b);
     char lab[44]; scpy(lab, TN[t], sizeof lab); scat(lab, " · ", sizeof lab); scat(lab, MN(b, t), sizeof lab);
-    show_ov(b, lab, "SONIDO INICIAL", 256);
+    show_ov(b, lab, "INICIALIZADO", 256);
     audition(b, -1); mark(b);
 }
 /* SCL 1 s: la pista vacía (su largo y velocidad se quedan); una blanca 1 s en PATRONES: ese patrón vacío (su sonido se queda) */
@@ -1691,7 +1737,7 @@ static void reset_fx(fg_box_t *b)
 {
     for (unsigned i = 0; i < 8; i++) { b->s.fx[i] = FXDEF[i]; post(b, M_FX, 0, i, 0, FXDEF[i]); }
     b->perf = b->latch = b->perf_held = 0; send_perf(b);   /* (y los de performance, apagados) */
-    show_ov(b, "EFECTOS", "COMO AL EMPEZAR", 256); mark(b);
+    show_ov(b, "EFECTOS", "INICIALIZADOS", 256); mark(b);
 }
 static void reset_lfo(fg_box_t *b)
 {
@@ -1705,7 +1751,7 @@ static void reset_glo(fg_box_t *b)
     b->s.swing = 0; post(b, M_SWING, 0, 0, 0, 0);
     b->s.transp = 0; post(b, M_TRANSP, 0, 0, 0, 0);
     b->s.scale = 1;
-    show_ov(b, "SWING, RAÍZ Y ESCALA", "COMO AL EMPEZAR", 256); mark(b);
+    show_ov(b, "SWING, NOTA BASE Y ESCALA", "INICIALIZADOS", 256); mark(b);
 }
 /* SOSTENER sin ARP: lo que se soltó deja de sonar (otra nota, o SOSTENER apagado) */
 static void hold_release(fg_box_t *b, unsigned t)
@@ -1816,7 +1862,7 @@ static void undo_step(fg_box_t *b, int redo)
 /* ---- botones ----
  * Un toque abre la página del botón encima de lo que haya (ENV también sobre SEQ); otro toque, su segunda página.
  * Mantener 1 s vacía o regresa a como al empezar lo de esa página. HOME + otro botón es su segunda función. */
-static const uint8_t PAGES_N[PG_N] = {2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1};
+static const uint8_t PAGES_N[PG_N] = {2, 2, 2, 2, 2, 3, 1, 2, 1, 1, 1};
 static int page_of(unsigned id)
 {
     switch (id) {
@@ -1829,26 +1875,27 @@ static void set_page(fg_box_t *b, unsigned pg)
 {
     if (b->page == pg && PAGES_N[pg] > 1) b->pn = (uint8_t)((b->pn + 1u) % PAGES_N[pg]);
     else { b->page = (uint8_t)pg; b->pn = 0; }
-    b->at_home = 0; b->slot_open = 0;
+    b->at_home = 0; b->arm = 0;
     clear_acc(b);
     int any = 0;
     for (unsigned k = 0; k < 4; k++) { tgt_t g; g.label = 0; int ok = target(b, k, &g); any |= ok || (g.label && pg == PG_PASO); scpy(b->names[k], ok || pg == PG_PASO ? g.label : "–", sizeof b->names[k]); }
-    b->names_until = any ? b->now + 1300u : 0; b->ov.until = 0; b->big_until = 0;
+    b->names_until = any ? ov_end(b, 1) : 0; b->ov.until = 0; b->big_until = 0;
 }
 /* HOME: al visual (las perillas, a EDIT); otro toque, los PATRONES */
 static void go_home(fg_box_t *b)
 {
-    b->page = PG_EDIT; b->pn = 0; b->at_home = 1; b->slot_open = 0;
+    b->page = PG_EDIT; b->pn = 0; b->at_home = 1; b->arm = 0;
     b->ov.until = 0; b->names_until = 0; b->big_until = 0; clear_acc(b);
 }
 static void open_view(fg_box_t *b, unsigned pg)
 {
-    b->page = (uint8_t)pg; b->pn = 0; b->at_home = 0; b->slot_open = 0;
+    b->page = (uint8_t)pg; b->pn = 0; b->at_home = 0; b->arm = 0;
     b->ov.until = 0; b->names_until = 0; b->big_until = 0; clear_acc(b);
 }
 
 static int save_project(fg_box_t *b, unsigned slot);
 static void load_project(fg_box_t *b, unsigned slot);
+static void auto_save(fg_box_t *b);
 
 /* mantener 1 s: lo de cada botón como al empezar (REC: la automatización de la pista) */
 #define LONG_BTNS (1u << FB_EDIT | 1u << FB_SCL | 1u << FB_ENV | 1u << FB_FX | 1u << FB_LFO | 1u << FB_GLO | 1u << FB_ARP | 1u << FB_REC)
@@ -1859,6 +1906,7 @@ static void long_press(fg_box_t *b)
         unsigned id = ID[k];
         if (!held(b, id) || ((b->used_btn | b->long_done) >> id & 1u)) continue;
         if (b->wdown || b->bdown || held(b, FB_HOME)) continue;   /* (con teclas o HOME apretados es otra cosa) */
+        if (id == FB_REC && (b->page == PG_SLOTS || b->page == PG_PATS)) continue;   /* (ahí REC + blanca borra: sostenerlo no es otra cosa) */
         if (b->now - b->press_ms[id] < 1000u) continue;
         b->long_done |= (uint16_t)(1u << id);
         switch (id) {
@@ -1877,6 +1925,7 @@ static void long_press(fg_box_t *b)
 void fg_box_enc(fg_box_t *b, unsigned role, int d)
 {
     if (!d) return;
+    b->idle_ms = b->now; b->intro = 0;
     /* aceleración: girar rápido mueve más (solo perillas de rango largo) */
     uint32_t dt = b->now - b->enc_ms[role];
     b->enc_ms[role] = b->now;
@@ -1903,7 +1952,8 @@ void fg_box_enc(fg_box_t *b, unsigned role, int d)
         /* rango largo (0..127): 2 por clic despacio y hasta 12 girando rápido (de punta a punta en media vuelta);
          * rango corto (modos, listas): 1 por clic, 2 si va rápido */
         if (target(b, k, &g)) {
-            if (g.max - g.min > 40) mult = dt < 20u ? 12 : dt < 45u ? 7 : dt < 90u ? 4 : 2;
+            if (g.kind == TK_GLO && g.idx == 0) mult = dt < 45u ? 3 : dt < 90u ? 2 : 1;   /* TEMPO: 1 BPM por clic despacio, 3 como mucho */
+            else if (g.max - g.min > 40) mult = dt < 20u ? 12 : dt < 45u ? 7 : dt < 90u ? 3 : 1;   /* 1 por clic despacio; rápido, de punta a punta */
             else mult = dt < 45u ? 2 : 1;
         }
         turn(b, k, d * mult);
@@ -1929,10 +1979,15 @@ static int home_combo(fg_box_t *b, unsigned id)
     return 1;
 }
 
+static void touched(fg_box_t *b, int down)             /* cualquier botón o tecla */
+{
+    b->intro = 0; b->idle_ms = b->now;
+    if (down && b->avisos >= 2u && !b->arm) { b->ov.until = 0; b->names_until = 0; b->big_until = 0; }   /* FIJOS: se quitan al tocar otra cosa */
+}
 void fg_box_button(fg_box_t *b, unsigned id, int down)
 {
     if (id >= FB_NBTN) return;
-    b->intro = 0;
+    touched(b, down);
     if (!down) {
         if (!held(b, id)) return;
         b->down &= (uint16_t)~(1u << id);
@@ -1959,6 +2014,10 @@ void fg_box_button(fg_box_t *b, unsigned id, int down)
                 else if (b->at_home) open_view(b, PG_PATS);
                 else go_home(b);
             }
+            break;
+        case FB_SAVE:                                    /* en las RANURAS, SAVE solo (sin blanca): de regreso */
+            if (!b->save_open && !(b->used_btn & (1u << FB_SAVE)) && b->page == PG_SLOTS) go_home(b);
+            b->save_open = 0;
             break;
         case FB_REC:
             if (!((b->used_btn | b->long_done) & (1u << FB_REC))) {
@@ -2003,10 +2062,9 @@ void fg_box_button(fg_box_t *b, unsigned id, int down)
     }
     switch (id) {
     case FB_HOME: b->nhome = 0; b->saved_preset = 0; break;
-    case FB_SAVE:                                        /* guarda y abre las RANURAS; otro toque, de regreso */
-        if (b->page == PG_SLOTS) { go_home(b); break; }
-        open_view(b, PG_SLOTS);
-        if (!save_project(b, FBX_SLOTS)) show_ov(b, "PROYECTO", "GUARDADO", 256);
+    case FB_SAVE:                                        /* autoguarda y abre las RANURAS; otro toque, de regreso (al soltarlo) */
+        b->save_open = b->page != PG_SLOTS;
+        if (b->save_open) { open_view(b, PG_SLOTS); auto_save(b); }
         break;
     case FB_SEQ:                                         /* las blancas son pasos; otro toque, lo de cada paso */
         if (b->page == PG_PASO) set_page(b, PG_EDIT);
@@ -2049,7 +2107,8 @@ static void play_note(fg_box_t *b, unsigned i)
         lk = clampi(64 + semi, 0, 127);
     } else lk = (int)(i * 8u + 4u);
     b->kt[i] = (uint8_t)t;
-    if (is_synth(t) && ((b->s.arp_on >> t) & 1u)) { post(b, M_ARPKEY, t, 128u + i, (unsigned)lk, 1); return; }   /* al arpegiador */
+    b->arp_w &= (uint16_t)~(1u << i);
+    if (is_synth(t) && ((b->s.arp_on >> t) & 1u)) { b->arp_w |= (uint16_t)(1u << i); post(b, M_ARPKEY, t, 128u + i, (unsigned)lk, 1); return; }   /* al arpegiador */
     if (is_synth(t) && b->s.arp[t][3] && b->hold_k[t - 4]) {   /* SOSTENER: una nota nueva (sin otra sostenida a mano) suelta las de antes */
         int other = 0;
         for (unsigned j = 0; j < 16u; j++) if (j != i && (b->wdown >> j & 1u) && b->kt[j] == t) other = 1;
@@ -2112,38 +2171,189 @@ static void perf_release(fg_box_t *b, unsigned i)
     if (!(b->latch & m) && (b->perf & m)) { b->perf &= (uint16_t)~m; send_perf(b); }
 }
 
-/* PATRONES: tocar = ese patrón (al terminar el que suena); mantener 1 s = vaciarlo; COPIAR / PEGAR + blanca */
+/* lo que pide confirmar: el aviso se queda mientras la blanca siga abajo (y 4 s después de soltarla) */
+enum { FBA_NONE, FBA_OPEN, FBA_SAVE, FBA_PASTE, FBA_DEL, FBA_PDEL, FBA_NEW };
+static int armed(const fg_box_t *b, unsigned what, unsigned i) { return b->arm == what && b->arm_i == i; }
+static void arm_ask(fg_box_t *b, unsigned what, unsigned i, const char *label, const char *value)
+{
+    show_ov(b, label, value, -1);
+    b->arm = (uint8_t)what; b->arm_i = (uint8_t)i; b->arm_up = 0; b->arm_ms = b->now;
+    b->ov.until = b->now + FBX_FIJO;                      /* (hasta que se suelte: luego 4 s) */
+}
+/* deshacer también lo que se hace en otro patrón (vaciar uno que no suena): su estado antes y después */
+static void undo_commit(fg_box_t *b);
+static void undo_commit_pat(fg_box_t *b, unsigned p)
+{
+    unsigned cur = b->s.cur;
+    if (p == cur) { undo_commit(b); return; }
+    uint8_t keep[8][8];                                   /* (las perillas de los motores de p: kit_put las pisa) */
+    for (unsigned t = 0; t < 8; t++) fg_copy(keep[t], b->s.p[t][b->kit[p].model[t] % FBX_NM], 8);
+    kit_take(&b->s, &b->kit[cur]);
+    kit_put(&b->s, &b->kit[p]); b->s.cur = (uint8_t)p;
+    undo_commit(b);
+    b->s.cur = (uint8_t)cur; kit_put(&b->s, &b->kit[cur]);
+    for (unsigned t = 0; t < 8; t++) if (b->kit[p].model[t] != b->kit[cur].model[t]) fg_copy(b->s.p[t][b->kit[p].model[t] % FBX_NM], keep[t], 8);
+}
+static void clear_pattern(fg_box_t *b, unsigned p);
+static void empty_pattern(fg_box_t *b, unsigned p)       /* REC + blanca dos veces: vacío; HOME + OCT − lo regresa */
+{
+    if (b->u_dirty) undo_commit(b);
+    undo_commit_pat(b, p);
+    clear_pattern(b, p);
+    undo_commit_pat(b, p);
+    b->u_dirty = 0;
+}
+
+/* PATRONES: tocar = ese patrón (al terminar el que suena); REC + blanca, otra vez = vaciarlo; COPIAR / PEGAR + blanca */
 static void pats_press(fg_box_t *b, unsigned i)
 {
-    char v[24];
+    char v[24], q[32];
     if (i >= FBX_NP) return;
     v[0] = 0; scpy(v, "PATRÓN ", sizeof v); cati(v, (int)i + 1, sizeof v);
+    if (held(b, FB_REC)) {
+        b->used_btn |= 1u << FB_REC;
+        if (!armed(b, FBA_PDEL, i)) { scpy(q, "VACIAR ", sizeof q); scat(q, v, sizeof q); arm_ask(b, FBA_PDEL, i, q, "PRESIONA DE NUEVO"); return; }
+        b->arm = 0;
+        empty_pattern(b, i);
+        return;
+    }
+    b->arm = 0;
     if (held_b(b, BK_COPY)) { b->copy_kind = 1; b->copy_idx = (int8_t)i; show_ov(b, "COPIADO", v, 0); return; }
     if (held_b(b, BK_PASTE)) {
         if (b->copy_kind != 1) { show_ov(b, "PEGAR", "COPIA UN PATRÓN", 0); return; }
         copy_pattern(b, (unsigned)b->copy_idx, i); show_ov(b, "PEGADO", v, 256); mark(b);
         return;
     }
-    b->pat_ms[i] = b->now; b->pat_done &= (uint16_t)~(1u << i); b->pat_held |= (uint16_t)(1u << i);
     if (b->s.chain_on) { b->s.chain_on = 0; send_chain(b, 0); }
     queue_pat(b, i);
     mark(b);
 }
 
-/* RANURAS: vacía = guarda ahí; llena = otro toque la abre; HOME + blanca = guarda encima */
-static void slots_press(fg_box_t *b, unsigned i)
+/* RANURAS. SAVE sostenido + blanca: guarda ahí (encima, otra vez). REC sostenido + blanca, otra vez: la borra.
+ * COPIAR / PEGAR + blanca: copia una ranura en otra. Tocar una llena, otra vez: la abre. Tocar una vacía no
+ * escribe nada: solo dice cómo se guarda. Lo que escribe la flash, tocando, espera a que pares (fl_run) */
+static void slot_name(char *v, unsigned cap, const char *pre, unsigned i, const char *post)
+{
+    scpy(v, pre, cap); scat(v, "RANURA ", cap); cati(v, (int)i + 1, cap); scat(v, post, cap);
+}
+static int fl_later(fg_box_t *b, unsigned what, unsigned i, unsigned src)
 {
     char v[24];
-    v[0] = 0; scpy(v, "RANURA ", sizeof v); cati(v, (int)i + 1, sizeof v);
-    if (held(b, FB_HOME)) {
-        b->used_btn |= 1u << FB_HOME;
-        if (!save_project(b, i)) show_ov(b, "GUARDADO ENCIMA", v, 256);
+    if (!b->playing) return 0;
+    b->fl_pend = (uint8_t)what; b->fl_i = (uint8_t)i; b->fl_src = (uint8_t)src;
+    slot_name(v, sizeof v, "", i, "");
+    show_ov(b, v, what == FBA_DEL ? "SE BORRARÁ AL PARAR" : "SE GUARDARÁ AL PARAR", -1);
+    return 1;
+}
+static void slot_save(fg_box_t *b, unsigned i)
+{
+    char v[24];
+    if (fl_later(b, FBA_SAVE, i, 0)) return;
+    if (save_project(b, i)) return;
+    b->proj_slot = (uint8_t)(i + 1u); b->pdirty = 0; b->dirty = 1; b->dirty_ms = b->now;   /* (el autoguardado recuerda la ranura) */
+    slot_name(v, sizeof v, "", i, ""); show_ov(b, "GUARDADO EN", v, 256);
+}
+static void slot_delete(fg_box_t *b, unsigned i)
+{
+    char v[24];
+    if (fl_later(b, FBA_DEL, i, 0)) return;
+    if (!b->store_write || !px_take_buf(1) || b->store_write(i, pack_buf, 0)) { show_ov(b, "BORRAR", "NO SE PUDO", 0); return; }
+    b->slots &= (uint16_t)~(1u << i);
+    if (b->proj_slot == i + 1u) { b->proj_slot = 0; b->dirty = 1; b->dirty_ms = b->now; }
+    slot_name(v, sizeof v, "", i, ""); show_ov(b, v, "BORRADA", 0);
+}
+static void slot_paste(fg_box_t *b, unsigned from, unsigned to)
+{
+    char v[24];
+    uint32_t n = 0;
+    if (fl_later(b, FBA_PASTE, to, from)) return;
+    if (!b->store_write || !b->store_read || !px_take_buf(1) || b->store_read(from, pack_buf, sizeof pack_buf, &n) || !n ||
+        b->store_write(to, pack_buf, n)) { show_ov(b, "PEGAR", "NO SE PUDO", 0); return; }
+    b->slots |= (uint16_t)(1u << to);
+    if (b->proj_slot == to + 1u) { b->proj_slot = 0; b->dirty = 1; b->dirty_ms = b->now; }   /* (ya no es este proyecto) */
+    slot_name(v, sizeof v, "", to, ""); show_ov(b, "PEGADO EN", v, 256);
+}
+/* al parar: lo que se pidió tocando */
+static void fl_run(fg_box_t *b)
+{
+    unsigned what = b->fl_pend;
+    b->fl_pend = 0;
+    if (what == FBA_SAVE) slot_save(b, b->fl_i);
+    else if (what == FBA_DEL) slot_delete(b, b->fl_i);
+    else if (what == FBA_PASTE) slot_paste(b, b->fl_src, b->fl_i);
+}
+/* SAVE: el autoguardado (tocando, al parar) y la ranura donde estás */
+static void auto_save(fg_box_t *b)
+{
+    char v[24];
+    if (b->proj_slot) slot_name(v, sizeof v, "", b->proj_slot - 1u, ""); else scpy(v, "SAVE + BLANCA GUARDA", sizeof v);
+    if (b->playing) { show_ov(b, "AUTOGUARDADO AL PARAR", v, -1); return; }
+    if (b->dirty && save_project(b, FBX_SLOTS)) return;
+    show_ov(b, "AUTOGUARDADO", v, -1);
+}
+/* una ranura vacía, abierta: el proyecto de cero (lo de fábrica, sin patrones), que va a esa ranura con SAVE + su número.
+ * Los sonidos TUYOS se quedan */
+static void new_project(fg_box_t *b, unsigned slot)
+{
+    char v[24];
+    pause_audio(b);
+    song_defaults(b);
+    for (unsigned t = 0; t < 8; t++) for (unsigned m = 0; m < FBX_NM; m++) fg_copy(b->s.p[t][m], defp(t, m), 8);
+    b->kit_own = 0;
+    for (unsigned p = 0; p < FBX_NP; p++) kit_take(&b->s, &b->kit[p]);
+    b->s.cur = 0; b->Q.nchain = 0;
+    kit_put(&b->s, &b->kit[0]);
+    push_all(b);
+    b->a_cur = 0;
+    resume_audio(b);
+    clear_acc(b);
+    mark(b);
+    b->proj_slot = (uint8_t)(slot + 1u); b->pdirty = 1;   /* (no está escrito: SAVE + su número) */
+    undo_reset(b);
+    v[0] = 0; scpy(v, "RANURA ", sizeof v); cati(v, (int)slot + 1, sizeof v);
+    show_ov(b, "PROYECTO NUEVO", v, 256);
+}
+static void slots_press(fg_box_t *b, unsigned i)
+{
+    char v[24], q[32];
+    unsigned full = (b->slots >> i) & 1u;
+    slot_name(v, sizeof v, "", i, "");
+    if (held(b, FB_SAVE)) {
+        b->used_btn |= 1u << FB_SAVE;
+        if (full && !armed(b, FBA_SAVE, i)) { slot_name(q, sizeof q, "GUARDAR ENCIMA DE ", i, ""); arm_ask(b, FBA_SAVE, i, q, "PRESIONA DE NUEVO"); return; }
+        b->arm = 0; slot_save(b, i);
         return;
     }
-    if (!((b->slots >> i) & 1u)) { if (!save_project(b, i)) show_ov(b, "GUARDADO EN", v, 256); return; }
-    if (b->slot_open == i + 1u) { b->slot_open = 0; load_project(b, i); return; }
-    b->slot_open = (uint8_t)(i + 1u); b->slot_open_ms = b->now;
-    show_ov(b, v, "OTRA VEZ PARA ABRIR", 0);
+    if (held(b, FB_REC)) {
+        b->used_btn |= 1u << FB_REC;
+        if (!full) { b->arm = 0; show_ov(b, v, "VACÍA", -1); return; }
+        if (!armed(b, FBA_DEL, i)) { slot_name(q, sizeof q, "BORRAR ", i, ""); arm_ask(b, FBA_DEL, i, q, "DE NUEVO PARA BORRAR"); return; }
+        b->arm = 0; slot_delete(b, i);
+        return;
+    }
+    if (held_b(b, BK_COPY)) {
+        b->arm = 0;
+        if (!full) { show_ov(b, v, "VACÍA", -1); return; }
+        b->copy_kind = 4; b->copy_idx = (int8_t)i; show_ov(b, "COPIADO", v, 0);
+        return;
+    }
+    if (held_b(b, BK_PASTE)) {
+        if (b->copy_kind != 4) { b->arm = 0; show_ov(b, "PEGAR", "COPIA UNA RANURA", 0); return; }
+        if ((unsigned)b->copy_idx == i) { b->arm = 0; show_ov(b, v, "ES LA COPIADA", -1); return; }
+        if (full && !armed(b, FBA_PASTE, i)) { slot_name(q, sizeof q, "GUARDAR ENCIMA DE ", i, ""); arm_ask(b, FBA_PASTE, i, q, "PRESIONA DE NUEVO"); return; }
+        b->arm = 0; slot_paste(b, (unsigned)b->copy_idx, i);
+        return;
+    }
+    if (held(b, FB_HOME)) b->used_btn |= 1u << FB_HOME;  /* (HOME + blanca ya no guarda encima) */
+    if (!full) {                                         /* vacía: dos veces, un proyecto de cero */
+        if (armed(b, FBA_NEW, i)) { b->arm = 0; new_project(b, i); return; }
+        if (b->pdirty) scpy(q, "CAMBIOS SIN GUARDAR", sizeof q); else slot_name(q, sizeof q, "", i, " VACÍA");
+        arm_ask(b, FBA_NEW, i, q, "DE NUEVO PARA EMPEZAR");
+        return;
+    }
+    if (armed(b, FBA_OPEN, i)) { b->arm = 0; load_project(b, i); return; }
+    if (b->pdirty) scpy(q, "CAMBIOS SIN GUARDAR", sizeof q); else slot_name(q, sizeof q, "ABRIR ", i, "");
+    arm_ask(b, FBA_OPEN, i, q, "PRESIONA DE NUEVO");
 }
 
 /* un paso: tocar lo prende o lo apaga. Con FILL se ve y se edita el patrón como suena en el fill: lo que se
@@ -2204,7 +2414,8 @@ static void white_press(fg_box_t *b, unsigned i)
 static void white_release(fg_box_t *b, unsigned i)
 {
     uint16_t m = (uint16_t)(1u << i);
-    b->wdown &= (uint16_t)~m; b->pat_held &= (uint16_t)~m;
+    b->wdown &= (uint16_t)~m;
+    if (b->arm && b->arm_i == i && !b->arm_up) { b->arm_up = 1; b->arm_ms = b->now; b->ov.until = b->now + 4000u; }
     if (b->perf_held & m) { perf_release(b, i); b->used_w &= (uint16_t)~m; return; }
     if (held(b, FB_FX)) { b->used_w &= (uint16_t)~m; return; }
     if (i < 8 && ((b->mix_armed >> i) & 1u)) {
@@ -2219,8 +2430,10 @@ static void white_release(fg_box_t *b, unsigned i)
     if (b->note_w & m) {
         b->note_w &= (uint16_t)~m;
         unsigned t = b->kt[i];
-        if (is_synth(t) && !((b->s.arp_on >> t) & 1u) && b->s.arp[t][3]) b->hold_k[t - 4] |= m;   /* SOSTENER: sigue sonando */
-        else if (is_synth(t)) post(b, (b->s.arp_on >> t) & 1u ? M_ARPKEY : M_NOTEOFF, t, 128u + i, 0, 0);
+        unsigned to_arp = (b->arp_w & m) != 0;           /* el fin va a donde fue la nota, aunque el ARP cambió con la tecla abajo */
+        b->arp_w &= (uint16_t)~m;
+        if (is_synth(t) && !to_arp && b->s.arp[t][3] && !((b->s.arp_on >> t) & 1u)) b->hold_k[t - 4] |= m;   /* SOSTENER: sigue sonando */
+        else if (is_synth(t)) post(b, to_arp ? M_ARPKEY : M_NOTEOFF, t, 128u + i, 0, 0);
         b->used_w &= (uint16_t)~m;
         return;
     }
@@ -2253,7 +2466,7 @@ static void black_release(fg_box_t *b, unsigned i) { b->bdown &= (uint16_t)~(1u 
 void fg_box_key(fg_box_t *b, unsigned k, int down)
 {
     if (k >= FBX_KEYS) return;
-    b->intro = 0;
+    touched(b, down);
     if (down) b->used_btn |= (uint16_t)(b->down & LONG_BTNS);
     if (KEYW[k] >= 0) { if (down) white_press(b, (unsigned)KEYW[k]); else white_release(b, (unsigned)KEYW[k]); }
     else if (KEYB[k] >= 0) { if (down) black_press(b, (unsigned)KEYB[k]); else black_release(b, (unsigned)KEYB[k]); }
@@ -2263,19 +2476,12 @@ void fg_box_tick(fg_box_t *b, uint32_t now)
 {
     b->now = now;
     if (b->arec) { b->arec = 0; mark(b); }
-    if (b->slot_open && now - b->slot_open_ms > 3000u) b->slot_open = 0;   /* RANURAS: el toque para abrir caduca */
-    if (b->pat_arm && now - b->pat_arm_ms > 3000u) b->pat_arm = 0;       /* la confirmación caduca */
-    if (b->page == PG_PATS)                              /* PATRONES: mantener una blanca 1 s pide confirmar; otra vez 1 s, la vacía */
-        for (unsigned i = 0; i < FBX_NP && i < 16u; i++)
-            if (((b->pat_held >> i) & 1u) && !((b->pat_done >> i) & 1u) && now - b->pat_ms[i] >= 1000u && !held(b, FB_HOME) && !held_b(b, BK_COPY) && !held_b(b, BK_PASTE)) {
-                b->pat_done |= (uint16_t)(1u << i);
-                if (b->pat_arm == i + 1u) { b->pat_arm = 0; clear_pattern(b, i); }
-                else {
-                    char v[24]; v[0] = 0; scpy(v, "PATRÓN ", sizeof v); cati(v, (int)i + 1, sizeof v);
-                    b->pat_arm = (uint8_t)(i + 1u); b->pat_arm_ms = now;
-                    show_ov(b, v, "OTRA VEZ PARA BORRAR", 0);
-                }
-            }
+    if (b->arm && b->arm_up && now - b->arm_ms > 4000u) b->arm = 0;   /* lo que pedía confirmar caduca 4 s después de soltar */
+    if (b->batt >= 500 && b->batt < BATT_LOW) { if (!b->batt_low_ms) b->batt_low_ms = now | 1u; }
+    else if (b->batt >= BATT_LOW + 6 || b->batt < 500) b->batt_low_ms = 0;   /* (un poco arriba: que no parpadee en el borde) */
+    int bl = batt_level(b);
+    if (bl && (now - b->batt_ms > (bl == 2 ? 20000u : 60000u) || bl != b->batt_shown)) { b->batt_ms = now; b->batt_shown = (uint8_t)bl; }   /* el aviso: 4 s cada minuto (vacía: en cuanto se vacía y cada 20 s) */
+    if (!bl) b->batt_shown = 0;
     long_press(b);
     /* ENV: mantener la blanca de la pista = solo */
     for (unsigned i = 0; i < 8; i++)
@@ -2302,6 +2508,22 @@ void fg_box_tick(fg_box_t *b, uint32_t now)
         b->hq_r = (uint16_t)((b->hq_r + 1u) % (sizeof b->hq / sizeof b->hq[0]));
     }
     for (unsigned t = 0; t < 8; t++) fg_vis_level(&b->vis, t, b->level[t]);
+    if (!b->intro && !b->playing && now - b->idle_ms > 4000u && b->page != PG_SLOTS && b->page != PG_CHAIN && b->page != PG_PATS && b->page != PG_ENV) {
+        if (now - b->rest_ms >= 2000u) {                 /* reposo: cada 2 s un golpe suave de una de tus pistas */
+            uint8_t has[8]; unsigned n = 0;
+            for (unsigned t = 0; t < 8; t++) { const fg_track_t *tr = &b->Q.pat[b->s.cur].tr[t]; for (unsigned k = 0; k < tr->len; k++) if (tr->st[k].v) { has[n++] = (uint8_t)t; break; } }
+            unsigned t = n ? has[(now / 2000u) % n] : (now / 2000u) % 8u;
+            b->rest_ms = now;
+            fg_vis_hit(&b->vis, t, b->s.model[t], 46, P(b, t), now);
+            fg_vis_level(&b->vis, t, 9000);
+        }
+    }
+    if (tip_due && !b->intro && now - b->intro_t0 > 3200u) {   /* una vez (la primera vez que arranca la 0.10): los gestos nuevos */
+        tip_due = 0;
+        show_ov(b, "SAVE + 1 A 16 PARA GUARDAR", "REC + 1 A 16 PARA BORRAR", -1);
+        b->ov.until = now + 6000u;
+        b->tip_seen = 1; dev_dirty = 1;
+    }
     if (b->intro) {                                      /* el arranque: un compás corto con los visuales de tus pistas */
         static const struct { uint16_t at; uint8_t t; } HIT[8] = {{420, 0}, {520, 2}, {640, 4}, {760, 0}, {860, 3}, {980, 6}, {1100, 0}, {1180, 5}};
         uint32_t it = now - b->intro_t0;
@@ -2318,9 +2540,16 @@ void fg_box_midi_in(fg_box_t *b, uint8_t st, uint8_t d1, uint8_t d2)
     unsigned t = st & 0x0Fu, ty = st & 0xF0u;
     char lab[44], val[28];
     if (!(b->s.mnotes & 1u) || t > 7u) return;
-    if (t >= 4 && ((b->s.arp_on >> t) & 1u) && (ty == 0x90u || ty == 0x80u)) {   /* al arpegiador */
-        post(b, M_ARPKEY, t, d1 & 127u, (unsigned)clampi(64 + (int)d1 - 60, 0, 127), ty == 0x90u && d2);
-        return;
+    if (ty == 0x90u && d2) b->idle_ms = b->now;         /* (tocar por MIDI tampoco es reposo) */
+    if (t >= 4 && (ty == 0x90u || ty == 0x80u)) {        /* el fin de nota va a donde fue la nota (al ARP o al sinte) */
+        uint32_t *ma = &b->marp[t - 4][(d1 >> 5) & 3u], bit = 1u << (d1 & 31u);
+        unsigned on = ty == 0x90u && d2;
+        if (on) { if ((b->s.arp_on >> t) & 1u) *ma |= bit; else *ma &= ~bit; }
+        if ((on && ((b->s.arp_on >> t) & 1u)) || (!on && (*ma & bit))) {   /* al arpegiador */
+            if (!on) *ma &= ~bit;
+            post(b, M_ARPKEY, t, d1 & 127u, (unsigned)clampi(64 + (int)d1 - 60, 0, 127), on);
+            return;
+        }
     }
     if (ty == 0x90u && d2) {                             /* sinte: suena mientras se sostiene; do 60 = su NOTA */
         post(b, M_TRIG, t, d2, t >= 4 ? (unsigned)clampi(64 + (int)d1 - 60, 0, 127) : FG_NONE, t >= 4 ? (int32_t)(0x100u | (d1 & 127u)) : 0);
@@ -2400,10 +2629,11 @@ void fg_box_leds(fg_box_t *b, uint32_t *btn, uint32_t *keys)
         } else switch (b->page) {
         case PG_PATS:                                    /* los patrones con pasos; el que suena parpadea, el de la cola rápido */
             on = i < FBX_NP && pat_used(b, i);
-            if (i == b->s.cur && blink) on = !on;
+            if (b->arm == FBA_PDEL && b->arm_i == i) on = (b->now >> 6) & 1u;
+            else if (i == b->s.cur && blink) on = !on;
             else if (i == b->queued && i != b->s.cur && ((b->now >> 6) & 1u)) on = !on;
             break;
-        case PG_SLOTS: on = (b->slots >> i) & 1u; if (b->slot_open == i + 1u && blink) on = 0; break;
+        case PG_SLOTS: on = (b->slots >> i) & 1u; if (b->arm && b->arm_i == i) on = (b->now >> 6) & 1u; break;   /* (lo que pide confirmar: rápido) */
         case PG_CHAIN:                                   /* las filas con patrón; la que suena parpadea */
             on = b->s.crow[i] < FBX_NP;
             if ((int)i == fg_box_chain_row(b) && blink) on = !on;
@@ -2741,6 +2971,7 @@ uint32_t fg_box_pack(fg_box_t *b, uint8_t *buf, uint32_t cap)
         if (!k) return 0;
         n += k; ref = b->kit[p];
     }
+    if (n + 3u <= cap) { buf[n++] = 0xA5u; buf[n++] = b->proj_slot; buf[n++] = b->pdirty; }   /* (0.10: la ranura donde estás; si no cabe, no va) */
 #undef PUT
     return n;
 }
@@ -2884,6 +3115,8 @@ int fg_box_unpack(fg_box_t *b, const uint8_t *buf, uint32_t len)
         b->kit_own = 0;
         for (unsigned p = 0; p < FBX_NP; p++) { kit_take(&b->s, &b->kit[p]); if (pat_used(b, p)) b->kit_own |= (uint16_t)(1u << p); }
     }
+    b->proj_slot = 0; b->pdirty = 0;
+    if (ver >= 8u && n + 3u <= len && buf[n] == 0xA5u && buf[n + 1] <= FBX_SLOTS) { b->proj_slot = buf[n + 1]; b->pdirty = buf[n + 2] != 0; }
     ub_merge(b);
     if (b->s.cur >= FBX_NP) b->s.cur = 0;
     b->Q.nchain = 0;
@@ -2918,6 +3151,7 @@ static void load_project(fg_box_t *b, unsigned slot)
     if (!b->store_read || b->store_read(slot, pack_buf, sizeof pack_buf, &n) || fg_box_unpack(b, pack_buf, n)) { show_ov(b, "ABRIR", "NO SE PUDO", 0); return; }
     if (slot < FBX_SLOTS) { v[0] = 0; scpy(v, "RANURA ", sizeof v); cati(v, (int)slot + 1, sizeof v); show_ov(b, "ABIERTO", v, 256); }
     mark(b);
+    if (slot < FBX_SLOTS) { b->proj_slot = (uint8_t)(slot + 1u); b->pdirty = 0; }
     undo_reset(b);
 }
 
@@ -2933,6 +3167,8 @@ void fg_box_boot(fg_box_t *b)
     undo_reset(b);
     b->ov.until = 0;
     b->intro = 1; b->intro_t0 = b->now; b->intro_k = 0;
+    b->idle_ms = b->now;
+    tip_due = b->store_write && !b->tip_seen;
 }
 
 void fg_box_note(fg_box_t *b, const char *label, const char *value)   /* después del arranque, unos segundos */
@@ -2944,12 +3180,13 @@ void fg_box_note(fg_box_t *b, const char *label, const char *value)   /* despué
 void fg_box_idle(fg_box_t *b)
 {
     px_tick(b);                                          /* la app: avisos y traslados que se quedaron abiertos */
+    if (b->fl_pend && !b->playing && !b->wdown && !b->down) fl_run(b);   /* lo que se pidió tocando: ya paró */
     /* deshacer: una ráfaga de cambios que lleva 0.7 s quieta queda como un estado */
     if (b->u_dirty && b->now - b->dirty_ms > 700u && !b->down && !b->wdown && !b->bdown) undo_commit(b);
     /* autoguardado: parado, con cambios, y 3 s sin tocar nada */
     /* (si una escritura falló, se espera retry_ms: reintentar en cada vuelta borraría la flash sin parar) */
     if ((int32_t)(b->now - b->retry_ms) < 0 || !b->store_write) return;
-    if (b->dirty && !b->playing && b->now - b->dirty_ms > 3000u && !b->down && !b->wdown && !b->bdown) save_project(b, FBX_SLOTS);
+    if (b->dirty && !b->playing && b->now - b->dirty_ms > 3000u && !b->down && !b->wdown && !b->bdown && !batt_empty(b)) save_project(b, FBX_SLOTS);
     if (ub_dirty && !b->playing && !b->down && !b->wdown && !b->bdown) ub_flush(b);   /* un sonido guardado tocando: al parar */
     if (dev_dirty && !b->playing && !b->down && !b->wdown && !b->bdown && b->now - b->dirty_ms > 1000u) dev_flush(b);
 }

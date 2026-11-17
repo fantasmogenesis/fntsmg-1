@@ -16,7 +16,7 @@ static uint32_t SLOTN[FBX_UBANK_SLOT + 2];
 static uint32_t now_ms;
 static double audio_acc;
 static const char *outdir = "out/textos";
-static FILE *tsv;
+static FILE *tsv, *tsv2;
 static char ctx[96];
 static int caps;
 
@@ -88,6 +88,8 @@ static void frame(void)
     if (!nuevo) { static uint16_t px[240 * 16]; for (unsigned y = 0; y < 240; y += 16) fg_box_band(&B, y, px); return; }
     int n = caps++;
     save_screen(n);
+    for (int i = 0; i < nfr; i++)
+        fprintf(tsv2, "%d\t%s\t%s\t%d\t%d\t%d\t%d\t%s\n", n, fr[i].key, fr[i].shown, fr[i].x, fr[i].y, fr[i].w, fr[i].h, ctx);
     for (int i = 0; i < nfr; i++) {
         if (is_seen(fr[i].key) || nseen >= NSEEN) continue;
         snprintf(seen[nseen++], sizeof seen[0], "%s", fr[i].key);
@@ -117,7 +119,7 @@ static void enc(unsigned r, int d) { for (int k = 0; k < (d < 0 ? -d : d); k++) 
 static void step(unsigned i) { white(i, 1); white(i, 0); }
 
 static const char *const PGN[PG_N] = {"EDIT", "ENV", "FX", "SCL", "LFO", "GLO", "CADENA", "ARP", "PASO", "PATRONES", "RANURAS"};
-static const unsigned NPN[PG_N] = {2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1};
+static const unsigned NPN[PG_N] = {2, 2, 2, 2, 2, 3, 1, 2, 1, 1, 1};
 static const unsigned PGB[PG_N] = {FB_EDIT, FB_ENV, FB_FX, FB_SCL, FB_LFO, FB_GLO, 0, FB_ARP, 0, 0, 0};
 static void setctx(const char *what)
 {
@@ -138,13 +140,12 @@ static void sweep_knobs(const char *what)
 /* abre la página (con sus dos vueltas) y gira todo */
 static void page(unsigned pg)
 {
-    for (unsigned sub = 0; sub < 2; sub++) {
+    for (unsigned sub = 0; sub < NPN[pg]; sub++) {
         if (B.page != pg || B.pn != sub) { tap(PGB[pg]); run(100); }
         if (B.page != pg) { tap(PGB[pg]); run(100); }
         char w[64]; snprintf(w, sizeof w, "%s pág. %u", PGN[pg], sub + 1); setctx(w);
         run(300);
         sweep_knobs(w);
-        if (NPN[pg] < 2) break;
     }
     tap(FB_HOME); run(200);
 }
@@ -156,6 +157,8 @@ int main(int argc, char **argv)
     char fn[256];
     snprintf(fn, sizeof fn, "%s/textos.tsv", outdir);
     tsv = fopen(fn, "w");
+    snprintf(fn, sizeof fn, "%s/cuadros.tsv", outdir);
+    tsv2 = fopen(fn, "w");
     B.store_write = s_write; B.store_read = s_read; B.store_has = s_has;
     fg_box_init(&B, VMEM, 240, 240, 4, 1234);
     setctx("arranque");
@@ -167,9 +170,10 @@ int main(int argc, char **argv)
     for (unsigned t = 0; t < 8; t++) {
         if (t > 4) break;                                  /* (las 4 pistas de sinte dicen lo mismo) */
         track(t);
-        unsigned nm = t < 4 ? 3 : FGY_MODELS;
-        for (unsigned m = 0; m < nm; m++) {
-            while (B.s.model[t] != m) { setctx("gira ALGO (motor)"); enc(FE_ALGO, 1); }
+        unsigned m0 = B.s.model[t];
+        for (unsigned k = 0; k < 20; k++) {
+            if (k) { setctx("gira ALGO (motor)"); enc(FE_ALGO, 1); if (B.s.model[t] == m0) break; }
+            unsigned m = B.s.model[t];
             run(300);
             page(PG_EDIT);
             setctx("gira PRESET"); snprintf(scope, sizeof scope, "PRESET.%u.%u", t < 4 ? t : 4u, m);
@@ -244,6 +248,23 @@ int main(int argc, char **argv)
     setctx("HOME + OCT- / OCT+ (deshacer/rehacer)"); btn(FB_HOME, 1); tap(FB_OCTDN); tap(FB_OCTUP); btn(FB_HOME, 0); run(800);
     setctx("HOME + SCL (ritmo al azar)"); btn(FB_HOME, 1); tap(FB_SCL); btn(FB_HOME, 0); run(800);
     setctx("OCT- / OCT+"); tap(FB_OCTDN); run(300); tap(FB_OCTUP); run(300);
+    /* 0.10: guardar y borrar con SAVE/REC + blanca, ranuras, vaciar patrón, avisos, reposo, batería */
+    track(0);
+    setctx("SAVE (ranuras, tocando)"); tap(FB_SAVE); run(2500);
+    setctx("SAVE + blanca tocando (se guarda al parar)"); btn(FB_SAVE, 1); step(3); btn(FB_SAVE, 0); run(300); run(2500);
+    setctx("PLAY (parar): guarda lo pendiente"); tap(FB_PLAY); run(400); run(2500);
+    setctx("RANURAS: tocar una vacía"); step(5); run(300); run(2500);
+    setctx("SAVE + blanca en una ocupada (guardar encima)"); btn(FB_SAVE, 1); step(3); run(300); step(3); btn(FB_SAVE, 0); run(300); run(2500);
+    setctx("RANURAS: tocar una ocupada (abrir)"); step(3); run(300); step(3); run(300); run(2500);
+    setctx("RANURAS: COPIAR + ranura"); black(9, 1); step(3); run(300); black(9, 0); run(1500);
+    setctx("RANURAS: PEGAR + ranura"); black(10, 1); step(6); run(300); step(6); run(300); black(10, 0); run(2500);
+    setctx("RANURAS: REC + blanca (borrar)"); btn(FB_REC, 1); step(6); run(300); step(6); run(300); btn(FB_REC, 0); run(4500);
+    tap(FB_SAVE); run(300); tap(FB_HOME); run(300);
+    setctx("PATRONES: REC + blanca (vaciar)"); tap(FB_HOME); run(300); btn(FB_REC, 1); step(0); run(300); step(0); run(300); btn(FB_REC, 0); run(2500);
+    tap(FB_HOME); run(300);
+    setctx("parado sin tocar (reposo)"); run(9000);
+    setctx("batería baja"); B.batt = 538; run(7000);
+    setctx("batería vacía"); B.batt = 520; run(7000); B.batt = 0; run(3000);
     setctx("PLAY (parar)"); tap(FB_PLAY); run(800);
     fclose(tsv);
     printf("%d textos, %d capturas\n", nseen, caps);

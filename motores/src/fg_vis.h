@@ -59,6 +59,8 @@ typedef struct {
     uint8_t gate_off;
     uint16_t kmov[4];
     uint32_t kph;
+    uint8_t tex, dash;                 /* la textura del sinte que se dibuja (0 sólida, 1 punteada, 2 a rayas, 3 doble) y el anillo punteado del bombo */
+    int16_t clip0, clip1;              /* la columna del sinte (x de diseño; clip1 = 0: sin columna) */
 } fg_vis_t;
 
 uint32_t fg_vis_size(unsigned w, unsigned h, unsigned hist);
