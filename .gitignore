@@ -15,3 +15,4 @@ maqueta/
 __pycache__/
 *.dSYM/
 .venv/
+motores/PORTABILIDAD.md
