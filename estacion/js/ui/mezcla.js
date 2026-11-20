@@ -1,5 +1,5 @@
 // Mezcla y GLO: una tira por pista (ENV, las dos páginas, con mute, solo y nivel), los efectos globales (FX), los
-// ajustes globales (GLO: tempo, swing, raíz, escala, mutes, RELOJ, IDIOMA del aparato, NOTAS Y CC) y la CADENA.
+// ajustes globales (GLO: tempo, swing, raíz, escala, mutes, RELOJ, IDIOMA del aparato, MIDI) y la CADENA.
 import { h, perilla, KCOL } from './util.js';
 import { t } from '../i18n.js';
 import { E, on, perilla as mandar, mutes, idioma, hayProyecto, elegirPista } from '../estado.js';

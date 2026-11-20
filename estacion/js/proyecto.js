@@ -169,6 +169,7 @@ export function pack(pr) {
     o.push(pr.kitOwn & 255, pr.kitOwn >> 8);
     let ref = kitTomar(s);
     for (let p = 0; p < NP; p++) { kitCodificar(ref, pr.kits[p], o); ref = pr.kits[p]; }
+    if (pr.resto) o.push(...pr.resto);
   }
   return Uint8Array.from(o);
 }
@@ -201,6 +202,7 @@ export function unpack(b) {
     pr.kitOwn = b[i] | b[i + 1] << 8; i += 2;
     let ref = kitTomar(s);
     for (let p = 0; p < NP; p++) { const [k, j] = kitLeer(ref, b, i); pr.kits[p] = k; ref = k; i = j; }
+    if (i < b.length) pr.resto = b.slice(i);   /* 0.10: A5, la ranura y si tenía cambios; no se usa aquí, pero vuelve tal cual */
   } else { const k = kitTomar(s); pr.kits = pr.kits.map(() => k.slice()); }
   return pr;
 }

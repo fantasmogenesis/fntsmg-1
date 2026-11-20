@@ -8,7 +8,7 @@ import { PAG } from './proto.js';
 export const esSinte = t => t >= 4;
 export const SAMPLE_M = t => esSinte(t) ? 8 : 2;
 /* rev. 2: AFINACIÓN es la 0 (en los sintes, la nota) y SAMPLE la 1; la 8.ª de p es NIVEL y la 8.ª de EDIT es AZAR (azar[]) */
-const SAMPLE_K = ['AFINACIÓN', 'SAMPLE', 'PUNTO INICIO', 'CAÍDA', 'FILTRO', 'CRUJIDO', 'MODO', 'AZAR'];
+const SAMPLE_K = ['AFINACIÓN', 'SAMPLE', 'PUNTO INICIO', 'CAÍDA', 'FILTRO', 'DEGRADAR', 'MODO', 'AZAR'];
 /* dónde empieza cada banco en la perilla SAMPLE: BOMBOS 0–23, SNARES 24–47, TEXTURAS 48–95, TUYOS 96–127 */
 export const LUGAR0 = [0, 24, 48, 96];
 export const BANCOS = ['BOMBOS', 'SNARES', 'TEXTURAS', 'TUYOS'];
@@ -112,13 +112,13 @@ export function objetivo(t, pag, sub, k, ajustes = { idioma: 0 }) {
     case PAG.FX: { const i = D.fxPagina[sub & 1][k]; return { nombre: D.fx[i], global: true, ...byte(F.fx + i), fmt: v => fmtFx(i, v) }; }
     case PAG.SCL:
       if (sub) {
-        const L = ['MOVER', 'TRANSPONER', 'HUMANIZAR', 'DENSIDAD'], MI = [-64, 40, 0, 0], MA = [64, 88, 127, 127];
+        const L = ['DESPLAZAR', 'TRANSPONER', 'HUMANIZAR', 'DENSIDAD'], MI = [-64, 40, 0, 0], MA = [64, 88, 127, 127];
         if (k === 0) return { nombre: L[0], min: MI[0], max: MA[0], accion: true, get: () => 0,
           set: (pr, v) => { const tr = trk(pr, t), n = tr.len, a = tr.st.slice(0, n); for (let s = 0; s < n; s++) tr.st[((s + v) % n + n) % n] = a[s]; }, fmt: () => '← GIRA →' };
         return { nombre: L[k], min: MI[k], max: MA[k], ...{ get: pr => pr.song[off.scl2(t, k)], set: (pr, v) => { pr.song[off.scl2(t, k)] = v; } },
           fmt: k === 1 ? v => v === 64 ? 'CERO' : sg(v - 64) + (esSinte(t) ? ' ST' : '') : k === 2 ? v => v ? String(v) : 'CERO' : v => v >= 127 ? 'TODOS' : (v * 100 / 127 | 0) + '%' };
       } else {
-        const L = ['PASOS', 'VELOCIDAD', 'GOLPES', 'ROTAR'];
+        const L = ['PASOS', 'VELOCIDAD', 'EUCLÍDEO', 'GIRAR'];
         if (k === 0) return { nombre: L[0], min: 1, max: NS, get: pr => trk(pr, t).len, set: (pr, v) => { trk(pr, t).len = v; }, fmt: v => v + ' PASOS' };
         if (k === 1) return { nombre: L[1], min: 0, max: 2, get: pr => trk(pr, t).spd, set: (pr, v) => { trk(pr, t).spd = v; }, fmt: v => ['½', '1', '2'][v] + '×' };
         const cur = pr => pr.song[F.cur] % 16;
@@ -137,13 +137,13 @@ export function objetivo(t, pag, sub, k, ajustes = { idioma: 0 }) {
       if (!sub) {
         if (k === 0) return { nombre: 'TEMPO', global: true, ...byte(F.bpm, 60, 200), fmt: v => v + ' BPM' };
         if (k === 1) return { nombre: 'SWING', global: true, ...byte(F.swing, 0, 75), fmt: v => v + '%' };
-        if (k === 2) return { nombre: 'RAÍZ', global: true, ...sbyte(F.transp, -12, 12), fmt: v => sg(v) + ' ST' };
+        if (k === 2) return { nombre: 'NOTA BASE', global: true, ...sbyte(F.transp, -12, 12), fmt: v => sg(v) + ' ST' };
         return { nombre: 'ESCALA', global: true, ...byte(F.scale, 0, 7), fmt: v => D.escalas[cl(v, 0, 7)] };
       }
-      if (k === 0) return { nombre: 'SILENCIOS', global: true, ...byte(F.muteq, 0, 1), fmt: v => v ? 'AL COMPÁS' : 'AL INSTANTE' };
+      if (k === 0) return { nombre: 'MUTES', global: true, ...byte(F.muteq, 0, 1), fmt: v => v ? 'AL COMPÁS' : 'AL INSTANTE' };
       if (k === 1) return { nombre: 'RELOJ', global: true, ...byte(F.reloj, 0, 3), fmt: v => RELOJ[cl(v, 0, 3)] };
       if (k === 2) return { nombre: 'IDIOMA', global: true, ajuste: true, min: 0, max: 2, get: () => ajustes.idioma, set: (pr, v) => { ajustes.idioma = v; }, fmt: v => IDIOMAS[v] };
-      return { nombre: 'NOTAS Y CC', global: true, ...byte(F.mnotes, 0, 3), fmt: v => NOTASCC[cl(v, 0, 3)] };
+      return { nombre: 'MIDI', global: true, ...byte(F.mnotes, 0, 3), fmt: v => NOTASCC[cl(v, 0, 3)] };
     case PAG.CADENA: {
       const r = t;
       if (k === 0) return { nombre: 'PATRÓN', global: true, min: 0, max: 16, get: pr => { const v = pr.song[F.crow + r]; return v === 255 ? 0 : v + 1; }, set: (pr, v) => { pr.song[F.crow + r] = v ? v - 1 : 255; }, fmt: v => v ? 'PATRÓN ' + v : '– VACÍA' };
@@ -154,7 +154,7 @@ export function objetivo(t, pag, sub, k, ajustes = { idioma: 0 }) {
     case PAG.ARP: {
       if (!esSinte(t)) return null;
       if (sub) {                                   /* 0.10: DURACIÓN, REPETIR, PROBABILIDAD, ACENTO (arp2) */
-        const MA = [127, 3, 100, 3], L = ['DURACIÓN', 'REPETIR', 'PROBABILIDAD', 'ACENTO'];
+        const MA = [127, 3, 100, 3], L = ['DURACIÓN', 'REPETIR', '% AZAR', 'ACENTO'];
         return { nombre: L[k], ...byte(off.arp2(t, k), 0, MA[k]),
           fmt: k === 0 ? v => (v === 64 ? 100 : 12 + (v * 176 / 127 | 0)) + '%' : k === 1 ? v => '×' + (v + 1) : k === 2 ? v => v + '%' : v => v ? 'CADA ' + (v + 1) : 'NO' };
       }
@@ -166,7 +166,7 @@ export function objetivo(t, pag, sub, k, ajustes = { idioma: 0 }) {
           set: (pr, v) => { if (!v8(pr)) { pr.song[off.arp(t, 0)] = v; return; } if (v) { pr.song[off.arp(t, 0)] = v - 1; pr.song[F.arp_on] |= 1 << t; } else pr.song[F.arp_on] &= ~(1 << t); },
           fmtDe: pr => v => v8(pr) ? (v ? ARPM[v - 1] : 'NO') : ARPM[v], fmt: v => ARPM[v] };
       }
-      const MA = [4, 5, 2, 1], L = ['MODO', 'VELOCIDAD', 'OCTAVAS', 'SOSTENER'];
+      const MA = [4, 5, 2, 1], L = ['MODO', 'RITMO', 'OCTAVAS', 'SOSTENER'];
       return { nombre: L[k], ...byte(off.arp(t, k), 0, MA[k]), fmt: k === 1 ? v => ARPV[v] : k === 2 ? v => (v + 1) + (v ? ' OCTAVAS' : ' OCTAVA') : v => v ? 'SÍ' : 'NO' };
     }
   }
@@ -179,7 +179,7 @@ export function resolver(g, pr) {
   return { ...g, nombre: g.nombreDe ? g.nombreDe(pr) : g.nombre, fmt: g.fmtDe ? g.fmtDe(pr) : g.fmt, ...(r ? { min: r[0], max: r[1] } : {}) };
 }
 
-/* GOLPES > 0: los pasos los reparte Bjorklund (como el aparato: los locks de los pasos que quedan se respetan) */
+/* EUCLÍDEO > 0: los pasos los reparte Bjorklund (como el aparato: los locks de los pasos que quedan se respetan) */
 export function euclides(pr, t) {
   const p = pr.song[F.cur] % 16, n = pr.song[off.eu(p, t, 0)], rot = pr.song[off.eu(p, t, 1)], tr = pr.pats[p][t];
   if (!n) return;

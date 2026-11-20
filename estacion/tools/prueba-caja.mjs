@@ -7,6 +7,7 @@ import { Cliente, OBJ, PAG } from '../js/proto.js';
 import { unpack, pack, registro, pasoVacio, unpackPista, F } from '../js/proyecto.js';
 import { codificar } from '../js/adpcm.js';
 import { Esc } from '../js/proto.js';
+import D from '../js/meta-datos.js';
 
 const bin = process.argv[2];
 if (!bin) { console.error('falta el puente'); process.exit(2); }
@@ -26,7 +27,7 @@ const mod = await c.meta(1, 0); ok(mod.includes('SAMPLE'), 'META modelos del bom
 ok((await c.meta(5, 2)).length === 0, 'TEXTURAS vacío');
 { const m4 = await c.perilla(4, PAG.EDIT, 0, 4, 3), m1 = await c.perilla(1, PAG.EDIT, 0, 4, 1);
   ok(m4 === 11 && m1 === 4, `ALGO con un lugar que salió: CUERDAS → ${m4}, APLAUSO → ${m1}`);
-  const pn = await c.meta(2, 4, PAG.EDIT, 0); ok(pn.map(x => x.nombre).join() === 'NOTA,POSICIÓN,TORCER,MOVIMIENTO', 'perillas de TABLA: ' + pn.map(x => x.nombre).join(' · '));
+  const pn = await c.meta(2, 4, PAG.EDIT, 0); ok(pn.map(x => x.nombre).join() === D.perillas[4][11].slice(0, 4).join(), 'perillas de TABLA como en la tabla de la Estación: ' + pn.map(x => x.nombre).join(' · '));
   await c.perilla(4, PAG.EDIT, 0, 4, 0); await c.perilla(1, PAG.EDIT, 0, 4, 0); }
 const per = await c.meta(2, 4, PAG.EDIT, 0); ok(per.length === 4 && per[0].nombre, 'META perillas sinte A: ' + per.map(x => `${x.nombre}[${x.min}..${x.max}]`).join(' '));
 ok(typeof await c.meta(3, 0, PAG.GLO, 0, 0, 120) === 'string', 'META valor');
@@ -63,7 +64,7 @@ const pk = unpack(await c.leerObjeto(OBJ.PROYECTO, 0)); ok(pk.ver === 9 && pk.ki
 await c.transporte(1, 0); await correr(60);
 /* ARP: MODO 0 = NO y página 2 */
 ok((await c.perilla(4, PAG.ARP, 0, 0, 2)) === 2 && (await c.perilla(4, PAG.ARP, 0, 0, 0)) === 0, 'ARP MODO 2 y luego NO');
-ok((await c.meta(2, 4, PAG.ARP, 1)).map(x => x.nombre).join() === 'DURACIÓN,REPETIR,PROBABILIDAD,ACENTO', 'ARP página 2: DURACIÓN, REPETIR, PROBABILIDAD, ACENTO');
+ok((await c.meta(2, 4, PAG.ARP, 1)).map(x => x.nombre).join() === 'DURACIÓN,REPETIR,% AZAR,ACENTO', 'ARP página 2: DURACIÓN, REPETIR, % AZAR, ACENTO');
 /* PASO con locks y automatización, leído de vuelta con PISTA */
 const s = pasoVacio(); s.v = 2; s.p = 60; s.r = 3; s.u = -2; s.lk[1] = 90; s.lk[9] = 20; s.au = [[2, 70]];
 await c.paso(3, 4, 5, registro(s));
