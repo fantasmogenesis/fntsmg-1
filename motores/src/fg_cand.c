@@ -536,7 +536,7 @@ static void render_enjambre(fg_cand_t *c, int32_t *out, unsigned n)
             int32_t bend = (int32_t)(((int64_t)c->env2 >> 14) * 12 * 256 >> 16);          /* BAJADA: hasta una octava arriba que cae */
             uint32_t b = fg_note_inc(c->note_q8 + bend);
             for (int k = 0; k < nv; k++) {
-                c->y[k] += (int32_t)fg_inc((uint32_t)(40 + k * 13)) * 16;                     /* DERIVA: cada voz con su ola lenta */
+                c->y[k] = (int32_t)((uint32_t)c->y[k] + fg_inc((uint32_t)(40 + k * 13)) * 16u);   /* DERIVA: cada voz con su ola lenta */
                 int32_t pos = nv > 1 ? (k * 2 - (nv - 1)) * 65536 / (nv - 1) : 0;            /* -1 .. 1 (Q16) */
                 int32_t cents = (pos >> 8) * p[2] / 127 * 40 / 256                            /* hasta ±40 cents */
                               + ((fg_sin((uint32_t)c->y[k]) * (int32_t)p[3]) >> 15) / 12;

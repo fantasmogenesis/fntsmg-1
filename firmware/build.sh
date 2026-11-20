@@ -5,6 +5,9 @@
 #   ./build.sh mt       -> out/fntsmg-1-8pistas.fwsc: el audio USB con 8 canales (las 8 pistas antes de la mezcla), solo 44.1 kHz
 set -e
 cd "$(dirname "$0")"
+# Sin la consola serie USB: con ella, macOS 13–15 no toma la entrada de audio (Felucca #67; issue #2 de fntsmg-1).
+# Para desarrollar con firmware/tools/fm1.py: FELUCCA_CDC_DEFAULT=1 ./build.sh mt
+: "${FELUCCA_CDC_DEFAULT:=0}"; export FELUCCA_CDC_DEFAULT
 if [ "$1" = host ]; then exec host/build.sh; fi
 HERE=$PWD
 MOT=$HERE/../motores/src
