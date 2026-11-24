@@ -8,6 +8,9 @@ cd "$(dirname "$0")"
 # Sin la consola serie USB: con ella, macOS 13–15 no toma la entrada de audio (Felucca #67; issue #2 de fntsmg-1).
 # Para desarrollar con firmware/tools/fm1.py: FELUCCA_CDC_DEFAULT=1 ./build.sh mt
 : "${FELUCCA_CDC_DEFAULT:=0}"; export FELUCCA_CDC_DEFAULT
+# Identidad propia de FNTSMG-1 («FNTSMG» en el teclado del teléfono), libre en thefirmwarehub.com (20-nov-2026).
+# Hasta la 0.10.2 era FM-1_900, la de Felucca; desde la 0.10.3, esta.
+FELUCCA_PRODUCT=FM-1_368764; export FELUCCA_PRODUCT
 if [ "$1" = host ]; then exec host/build.sh; fi
 HERE=$PWD
 MOT=$HERE/../motores/src

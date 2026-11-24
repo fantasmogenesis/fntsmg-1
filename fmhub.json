@@ -1,0 +1,13 @@
+{
+  "what": "An 8-track groovebox: kick, snare, metal, perc and 4 synths, 17 own engines and SAMPLE on every track. 32-step sequencer, 16 patterns, sound and mix locks, conditions, ratchets, 16 live FX, arpeggiator, 8-channel USB audio. Every track draws its own visual. Menus in English, Spanish or Portuguese.",
+  "author": "fantasmogenesis",
+  "kinds": [
+    "groove"
+  ],
+  "play": "https://fantasmogenesis.art/fm1/caja",
+  "editor": "https://fantasmogenesis.art/fm1/estacion",
+  "cheat": "https://fantasmogenesis.art/fm1/guia",
+  "image": "docs/card.png",
+  "color": "#B6FF3B",
+  "sounds": "own: textures synthesized in code or recorded by fantasmogenesis; the Felucca base adds CC0 samples from Versilian Studios VSCO (vendor/Felucca/assets/samples-cc0)"
+}
